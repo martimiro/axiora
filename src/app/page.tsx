@@ -12,10 +12,16 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [gmailResult, setGmailResult] = useState<string | null>(null)
   const [view, setView] = useState<'dashboard' | 'conversations' | 'agents'>('dashboard')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('gmail') === 'connected') setGmailResult('Gmail conectado correctamente')
+  }, [])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function fetchData() {
@@ -46,9 +52,29 @@ export default function Dashboard() {
     }
   }
 
+  async function processEmails() {
+    setProcessing(true)
+    setGmailResult(null)
+    try {
+      const res = await fetch('/api/gmail/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: AGENT_ID }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        setGmailResult('Error: ' + data.error)
+      } else {
+        setGmailResult(`Procesados ${data.processed} emails nuevos`)
+        fetchData()
+      }
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   const totalConvs = agents.reduce((a, ag) => a + ag.conversations.length, 0)
   const totalMsgs = agents.reduce((a, ag) => a + ag.conversations.reduce((b, c) => b + c.messages.length, 0), 0)
-  const openConvs = agents.reduce((a, ag) => a + ag.conversations.filter(c => c.status === 'open').length, 0)
 
   const s = {
     app: { display: 'flex', minHeight: '100vh', background: '#080808', color: '#d4d0c8', fontFamily: "'IBM Plex Mono', monospace", fontSize: 13 } as any,
@@ -76,11 +102,12 @@ export default function Dashboard() {
     inputRow: { borderTop: '1px solid #1a1a1a', paddingTop: '1rem', display: 'flex', gap: '0.75rem' } as any,
     input: { flex: 1, background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none' } as any,
     btn: (disabled: boolean) => ({ background: disabled ? '#1a1a1a' : '#d4d0c8', color: '#080808', border: 'none', borderRadius: 4, padding: '0.6rem 1.25rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: disabled ? 'not-allowed' : 'pointer' }) as any,
+    btnGreen: (disabled: boolean) => ({ background: disabled ? '#0d2010' : '#4ade80', color: '#080808', border: 'none', borderRadius: 4, padding: '0.6rem 1.25rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: disabled ? 'not-allowed' : 'pointer' }) as any,
+    btnOutline: { background: 'transparent', color: '#444', border: '1px solid #222', borderRadius: 4, padding: '0.6rem 1.25rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' } as any,
   }
 
   return (
     <div style={s.app}>
-      {/* Sidebar */}
       <aside style={s.sidebar}>
         <div style={s.logo}>
           <div style={s.dot} />
@@ -100,7 +127,6 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* Main */}
       <main style={s.main}>
         <div style={s.topbar}>
           <span style={s.pageTitle}>{view === 'dashboard' ? 'PANEL DE CONTROL' : view === 'conversations' ? 'CONVERSACIONES' : 'AGENTES'}</span>
@@ -109,7 +135,6 @@ export default function Dashboard() {
 
         <div style={s.content}>
 
-          {/* DASHBOARD */}
           {view === 'dashboard' && (
             <>
               <div style={s.grid}>
@@ -143,11 +168,10 @@ export default function Dashboard() {
             </>
           )}
 
-          {/* CONVERSATIONS */}
           {view === 'conversations' && (
             <div style={s.chatWrap}>
               <div style={s.convList}>
-                <div style={s.sectionTitle}>TODAS LAS CONVERSACIONES</div>
+                <div style={s.sectionTitle}>CONVERSACIONES</div>
                 {agents.flatMap(ag => ag.conversations.map(c => ({ ...c, agentName: ag.name }))).map(c => (
                   <div key={c.id} style={s.convRow(activeConv?.id === c.id)} onClick={() => { setActiveConv(c); setMessages(c.messages.slice().reverse()) }}>
                     <div>
@@ -159,14 +183,13 @@ export default function Dashboard() {
                 ))}
                 {totalConvs === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>Sin conversaciones</div>}
               </div>
-
               <div style={s.chatArea}>
                 {activeConv ? (
                   <>
                     <div style={s.msgArea}>
                       {messages.map((msg, i) => (
                         <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: 3 }}>
-                          <span style={{ fontSize: 9, color: '#333', letterSpacing: '0.12em' }}>{msg.role === 'user' ? 'OPERADOR' : 'AGENTE'}</span>
+                          <span style={{ fontSize: 9, color: '#333', letterSpacing: '0.12em' }}>{msg.role === 'user' ? 'CLIENTE' : 'AGENTE'}</span>
                           <div style={{ background: msg.role === 'user' ? '#141414' : '#0f0f0f', border: `1px solid ${msg.role === 'user' ? '#222' : '#1a1a1a'}`, borderRadius: 4, padding: '0.6rem 0.875rem', maxWidth: '70%', fontSize: 12, lineHeight: 1.6 }}>
                             {msg.content}
                           </div>
@@ -181,7 +204,7 @@ export default function Dashboard() {
                       <div ref={bottomRef} />
                     </div>
                     <div style={s.inputRow}>
-                      <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder="Escribe un mensaje..." style={s.input} />
+                      <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder="Responder manualmente..." style={s.input} />
                       <button onClick={sendMessage} disabled={loading} style={s.btn(loading)}>ENVIAR</button>
                     </div>
                   </>
@@ -194,7 +217,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* AGENTS */}
           {view === 'agents' && (
             <div>
               <div style={s.sectionTitle}>AGENTES CONFIGURADOS</div>
@@ -210,6 +232,23 @@ export default function Dashboard() {
                       <div style={{ fontSize: 10, color: '#444', marginBottom: 4 }}>{ag.conversations.length} CONVERSACIONES</div>
                       <span style={s.badge('open')}>ACTIVO</span>
                     </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #1a1a1a', marginTop: '1rem', paddingTop: '1rem' }}>
+                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.75rem' }}>INTEGRACIONES</div>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as any }}>
+                      <a href="/api/gmail/auth" style={s.btnGreen(false)}>
+                        CONECTAR GMAIL
+                      </a>
+                      <button onClick={processEmails} disabled={processing} style={s.btn(processing)}>
+                        {processing ? 'PROCESANDO...' : 'PROCESAR EMAILS'}
+                      </button>
+                    </div>
+                    {gmailResult && (
+                      <div style={{ marginTop: '0.75rem', fontSize: 11, color: gmailResult.startsWith('Error') ? '#ef4444' : '#4ade80' }}>
+                        {gmailResult}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

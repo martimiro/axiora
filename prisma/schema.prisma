@@ -52,3 +52,12 @@ model User {
   name      String?
   createdAt DateTime @default(now())
 }
+
+model GmailIntegration {
+  id           String   @id
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
