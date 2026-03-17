@@ -62,8 +62,9 @@ export async function processNewEmails(agentId: string) {
     )
 
     // Responder al email
-    await sendReply(gmail, msg.id!, from, subject, reply)
-
+    if (process.env.GMAIL_AUTO_REPLY !== 'false') {
+   	 await sendReply(gmail, msg.id!, from, subject, reply)
+    }
     // Marcar como leído
     await gmail.users.messages.modify({
       userId: 'me',
