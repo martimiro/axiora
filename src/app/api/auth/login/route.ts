@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '@prisma/client/default'
+import { PrismaClient } from '@/generated/prisma'
 import bcrypt from 'bcryptjs'
 import { createToken } from '@/lib/auth'
 
