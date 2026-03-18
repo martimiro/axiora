@@ -62,10 +62,12 @@ export async function processNewEmails(agentId: string) {
     )
 
     // Responder al email
-    if (process.env.GMAIL_AUTO_REPLY !== 'false') {
-   	 await sendReply(gmail, msg.id!, from, subject, reply)
-    }
-    // Marcar como leído
+	const config = await prisma.config.findUnique({ where: { key: 'gmail_auto_reply' } })
+	const autoReply = config?.value === 'true'
+	if (autoReply) {
+  		await sendReply(gmail, msg.id!, from, subject, reply)
+	}   
+ // Marcar como leído
     await gmail.users.messages.modify({
       userId: 'me',
       id: msg.id!,

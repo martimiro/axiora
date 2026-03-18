@@ -13,13 +13,13 @@ datasource db {
 }
 
 model Agent {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  prompt      String   // instrucciones del agente
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id            String         @id @default(cuid())
+  name          String
+  description   String?
+  prompt        String
+  type          String         @default("support")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   conversations Conversation[]
 }
 
@@ -60,4 +60,10 @@ model GmailIntegration {
   expiresAt    DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model Config {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

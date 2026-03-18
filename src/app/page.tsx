@@ -1,10 +1,27 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 
-const AGENT_ID = 'cmmuturpi00001gai8kn1b46h'
 type Message = { role: string; content: string; createdAt: string }
 type Conv = { id: string; status: string; updatedAt: string; messages: Message[] }
-type Agent = { id: string; name: string; description: string; conversations: Conv[] }
+type Agent = { id: string; name: string; description: string; prompt: string; conversations: Conv[] }
+
+const AGENT_TEMPLATES = {
+  support: {
+    name: 'Agente de Soporte',
+    description: 'Gestiona tickets y responde preguntas frecuentes',
+    prompt: `Eres un agente de soporte amable y profesional. Tu objetivo es ayudar a los clientes a resolver sus dudas de forma clara y concisa. Responde siempre en el mismo idioma que el cliente. Si no puedes resolver el problema, indica que lo escalarás a un agente humano.`
+  },
+  sales: {
+    name: 'Agente de Ventas',
+    description: 'Cualifica leads y agenda reuniones comerciales',
+    prompt: `Eres un agente comercial profesional. Tu objetivo es cualificar leads, responder preguntas sobre productos y servicios, y agendar reuniones con el equipo de ventas. Sé proactivo pero no invasivo. Responde siempre en el mismo idioma que el cliente.`
+  },
+  admin: {
+    name: 'Agente Administrativo',
+    description: 'Procesa documentos y actualiza bases de datos',
+    prompt: `Eres un asistente administrativo eficiente. Tu objetivo es procesar solicitudes administrativas, extraer información de documentos y coordinar tareas internas. Sé preciso y metódico en tus respuestas.`
+  }
+}
 
 export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -14,24 +31,71 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [gmailResult, setGmailResult] = useState<string | null>(null)
-  const [view, setView] = useState<'dashboard' | 'conversations' | 'agents'>('dashboard')
+  const [autoReply, setAutoReply] = useState(false)
+  const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
+  const [view, setView] = useState<'dashboard' | 'conversations' | 'agents' | 'new-agent'>('dashboard')
+  const [newAgent, setNewAgent] = useState({ name: '', description: '', prompt: '', type: 'support' })
+  const [creating, setCreating] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { fetchData() }, [])
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('gmail') === 'connected') setGmailResult('Gmail conectado correctamente')
-  }, [])
+  useEffect(() => { fetchData(); fetchConfig() }, [])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function fetchData() {
     const res = await fetch('/api/conversations')
     const data = await res.json()
     setAgents(data)
+    if (data.length > 0 && !activeAgentId) setActiveAgentId(data[0].id)
+  }
+
+  async function fetchConfig() {
+    const res = await fetch('/api/config')
+    const data = await res.json()
+    setAutoReply(data.autoReply)
+  }
+
+  async function toggleAutoReply() {
+    const newValue = !autoReply
+    setAutoReply(newValue)
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autoReply: newValue })
+    })
+  }
+
+  async function createAgent() {
+    if (!newAgent.name || !newAgent.prompt) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAgent)
+      })
+      const data = await res.json()
+      if (data.id) {
+        await fetchData()
+        setView('agents')
+        setNewAgent({ name: '', description: '', prompt: '', type: 'support' })
+      }
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function deleteAgent(id: string) {
+    if (!confirm('¿Eliminar este agente?')) return
+    await fetch('/api/agents', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    })
+    await fetchData()
   }
 
   async function sendMessage() {
-    if (!input.trim() || loading) return
+    if (!input.trim() || loading || !activeAgentId) return
     const userMsg = input.trim()
     setInput('')
     setLoading(true)
@@ -40,7 +104,7 @@ export default function Dashboard() {
       const res = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: AGENT_ID, message: userMsg }),
+        body: JSON.stringify({ agentId: activeAgentId, message: userMsg }),
       })
       const data = await res.json()
       if (data.reply) {
@@ -52,14 +116,14 @@ export default function Dashboard() {
     }
   }
 
-  async function processEmails() {
+  async function processEmails(agentId: string) {
     setProcessing(true)
     setGmailResult(null)
     try {
       const res = await fetch('/api/gmail/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: AGENT_ID }),
+        body: JSON.stringify({ agentId }),
       })
       const data = await res.json()
       if (data.error) {
@@ -101,9 +165,15 @@ export default function Dashboard() {
     msgArea: { flex: 1, overflowY: 'auto', paddingBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' } as any,
     inputRow: { borderTop: '1px solid #1a1a1a', paddingTop: '1rem', display: 'flex', gap: '0.75rem' } as any,
     input: { flex: 1, background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none' } as any,
+    textarea: { width: '100%', background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none', resize: 'vertical' as any, minHeight: 120, boxSizing: 'border-box' as any } as any,
+    fieldInput: { width: '100%', background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none', boxSizing: 'border-box' as any } as any,
+    label: { fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.4rem', display: 'block' } as any,
     btn: (disabled: boolean) => ({ background: disabled ? '#1a1a1a' : '#d4d0c8', color: '#080808', border: 'none', borderRadius: 4, padding: '0.6rem 1.25rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: disabled ? 'not-allowed' : 'pointer' }) as any,
-    btnGreen: (disabled: boolean) => ({ background: disabled ? '#0d2010' : '#4ade80', color: '#080808', border: 'none', borderRadius: 4, padding: '0.6rem 1.25rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: disabled ? 'not-allowed' : 'pointer' }) as any,
-    btnOutline: { background: 'transparent', color: '#444', border: '1px solid #222', borderRadius: 4, padding: '0.6rem 1.25rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' } as any,
+    btnGreen: { background: '#4ade80', color: '#080808', border: 'none', borderRadius: 4, padding: '0.6rem 1.25rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' } as any,
+    btnDanger: { background: 'transparent', color: '#444', border: '1px solid #222', borderRadius: 4, padding: '0.4rem 0.875rem', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' } as any,
+    toggle: (active: boolean) => ({ width: 40, height: 22, borderRadius: 11, background: active ? '#4ade80' : '#222', position: 'relative' as any, cursor: 'pointer', transition: 'background 0.2s', border: 'none', outline: 'none' }) as any,
+    toggleDot: (active: boolean) => ({ position: 'absolute' as any, top: 3, left: active ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }) as any,
+    templateBtn: (active: boolean) => ({ padding: '0.5rem 1rem', border: `1px solid ${active ? '#4ade80' : '#222'}`, borderRadius: 4, background: active ? '#0d2010' : '#0f0f0f', color: active ? '#4ade80' : '#444', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' }) as any,
   }
 
   return (
@@ -118,7 +188,7 @@ export default function Dashboard() {
           { key: 'conversations', label: 'CONVERSACIONES' },
           { key: 'agents', label: 'AGENTES' },
         ].map(item => (
-          <div key={item.key} style={s.navItem(view === item.key)} onClick={() => setView(item.key as any)}>
+          <div key={item.key} style={s.navItem(view === item.key || (view === 'new-agent' && item.key === 'agents'))} onClick={() => setView(item.key as any)}>
             {item.label}
           </div>
         ))}
@@ -129,7 +199,7 @@ export default function Dashboard() {
 
       <main style={s.main}>
         <div style={s.topbar}>
-          <span style={s.pageTitle}>{view === 'dashboard' ? 'PANEL DE CONTROL' : view === 'conversations' ? 'CONVERSACIONES' : 'AGENTES'}</span>
+          <span style={s.pageTitle}>{view === 'dashboard' ? 'PANEL DE CONTROL' : view === 'conversations' ? 'CONVERSACIONES' : view === 'new-agent' ? 'NUEVO AGENTE' : 'AGENTES'}</span>
           <span style={{ fontSize: 10, color: '#2a2a2a' }}>{new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</span>
         </div>
 
@@ -151,7 +221,6 @@ export default function Dashboard() {
                   <div style={s.cardValue}>{totalMsgs}</div>
                 </div>
               </div>
-
               <div style={s.section}>
                 <div style={s.sectionTitle}>ACTIVIDAD RECIENTE</div>
                 {agents.flatMap(ag => ag.conversations.map(c => ({ ...c, agentName: ag.name }))).slice(0, 5).map(c => (
@@ -219,7 +288,10 @@ export default function Dashboard() {
 
           {view === 'agents' && (
             <div>
-              <div style={s.sectionTitle}>AGENTES CONFIGURADOS</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <div style={s.sectionTitle}>AGENTES CONFIGURADOS</div>
+                <button style={s.btnGreen} onClick={() => setView('new-agent')}>+ NUEVO AGENTE</button>
+              </div>
               {agents.map(ag => (
                 <div key={ag.id} style={{ ...s.card, marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -228,19 +300,27 @@ export default function Dashboard() {
                       <div style={{ fontSize: 11, color: '#444', marginBottom: '0.75rem' }}>{ag.description}</div>
                       <div style={{ fontSize: 10, color: '#2a2a2a' }}>ID: {ag.id}</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, color: '#444', marginBottom: 4 }}>{ag.conversations.length} CONVERSACIONES</div>
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column' as any, alignItems: 'flex-end', gap: 8 }}>
                       <span style={s.badge('open')}>ACTIVO</span>
+                      <div style={{ fontSize: 10, color: '#444' }}>{ag.conversations.length} conversaciones</div>
+                      <button style={s.btnDanger} onClick={() => deleteAgent(ag.id)}>ELIMINAR</button>
                     </div>
                   </div>
 
                   <div style={{ borderTop: '1px solid #1a1a1a', marginTop: '1rem', paddingTop: '1rem' }}>
-                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.75rem' }}>INTEGRACIONES</div>
+                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '1rem' }}>INTEGRACIONES GMAIL</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#111', borderRadius: 4, border: '1px solid #1a1a1a' }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: '#d4d0c8', marginBottom: 2 }}>Respuesta automática</div>
+                        <div style={{ fontSize: 10, color: '#444' }}>{autoReply ? 'El agente responde emails automáticamente' : 'El agente lee pero no responde'}</div>
+                      </div>
+                      <button style={s.toggle(autoReply)} onClick={toggleAutoReply}>
+                        <div style={s.toggleDot(autoReply)} />
+                      </button>
+                    </div>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as any }}>
-                      <a href="/api/gmail/auth" style={s.btnGreen(false)}>
-                        CONECTAR GMAIL
-                      </a>
-                      <button onClick={processEmails} disabled={processing} style={s.btn(processing)}>
+                      <a href="/api/gmail/auth" style={s.btnGreen}>CONECTAR GMAIL</a>
+                      <button onClick={() => processEmails(ag.id)} disabled={processing} style={s.btn(processing)}>
                         {processing ? 'PROCESANDO...' : 'PROCESAR EMAILS'}
                       </button>
                     </div>
@@ -252,6 +332,53 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+              {agents.length === 0 && (
+                <div style={{ textAlign: 'center', color: '#2a2a2a', marginTop: '3rem' }}>
+                  <div style={{ fontSize: 11, marginBottom: 8 }}>No hay agentes configurados</div>
+                  <button style={s.btnGreen} onClick={() => setView('new-agent')}>+ CREAR PRIMER AGENTE</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {view === 'new-agent' && (
+            <div style={{ maxWidth: 600 }}>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={s.sectionTitle}>PLANTILLA</div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' as any }}>
+                  {Object.entries(AGENT_TEMPLATES).map(([key, tmpl]) => (
+                    <button key={key} style={s.templateBtn(newAgent.type === key)} onClick={() => setNewAgent({ ...tmpl, type: key })}>
+                      {key.toUpperCase()}
+                    </button>
+                  ))}
+                  <button style={s.templateBtn(newAgent.type === 'custom')} onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: 'custom' })}>
+                    PERSONALIZADO
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1rem' }}>
+                <div>
+                  <label style={s.label}>NOMBRE DEL AGENTE</label>
+                  <input style={s.fieldInput} value={newAgent.name} onChange={e => setNewAgent({ ...newAgent, name: e.target.value })} placeholder="ej. Agente de Soporte" />
+                </div>
+                <div>
+                  <label style={s.label}>DESCRIPCIÓN</label>
+                  <input style={s.fieldInput} value={newAgent.description} onChange={e => setNewAgent({ ...newAgent, description: e.target.value })} placeholder="ej. Gestiona tickets y preguntas frecuentes" />
+                </div>
+                <div>
+                  <label style={s.label}>INSTRUCCIONES DEL AGENTE (PROMPT)</label>
+                  <textarea style={s.textarea} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder="Define cómo debe comportarse el agente, su tono, qué puede y no puede hacer..." rows={8} />
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button style={s.btn(creating || !newAgent.name || !newAgent.prompt)} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>
+                    {creating ? 'CREANDO...' : 'CREAR AGENTE'}
+                  </button>
+                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => setView('agents')}>
+                    CANCELAR
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
