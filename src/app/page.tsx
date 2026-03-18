@@ -4,27 +4,21 @@ import { useState, useEffect, useRef } from 'react'
 type Message = { role: string; content: string; createdAt: string }
 type Conv = { id: string; status: string; updatedAt: string; messages: Message[] }
 type Agent = { id: string; name: string; description: string; prompt: string; conversations: Conv[] }
+type Stats = {
+  totalAgents: number; totalConversations: number; totalMessages: number
+  messagesToday: number; messagesThisWeek: number; autoReplies: number
+  openConversations: number; agentStats: { id: string; name: string; conversations: number; messages: number }[]
+}
 
 const AGENT_TEMPLATES = {
-  support: {
-    name: 'Agente de Soporte',
-    description: 'Gestiona tickets y responde preguntas frecuentes',
-    prompt: `Eres un agente de soporte amable y profesional. Tu objetivo es ayudar a los clientes a resolver sus dudas de forma clara y concisa. Responde siempre en el mismo idioma que el cliente. Si no puedes resolver el problema, indica que lo escalarás a un agente humano.`
-  },
-  sales: {
-    name: 'Agente de Ventas',
-    description: 'Cualifica leads y agenda reuniones comerciales',
-    prompt: `Eres un agente comercial profesional. Tu objetivo es cualificar leads, responder preguntas sobre productos y servicios, y agendar reuniones con el equipo de ventas. Sé proactivo pero no invasivo. Responde siempre en el mismo idioma que el cliente.`
-  },
-  admin: {
-    name: 'Agente Administrativo',
-    description: 'Procesa documentos y actualiza bases de datos',
-    prompt: `Eres un asistente administrativo eficiente. Tu objetivo es procesar solicitudes administrativas, extraer información de documentos y coordinar tareas internas. Sé preciso y metódico en tus respuestas.`
-  }
+  support: { name: 'Agente de Soporte', description: 'Gestiona tickets y responde preguntas frecuentes', prompt: `Eres un agente de soporte amable y profesional. Tu objetivo es ayudar a los clientes a resolver sus dudas de forma clara y concisa. Responde siempre en el mismo idioma que el cliente. Si no puedes resolver el problema, indica que lo escalarás a un agente humano.` },
+  sales: { name: 'Agente de Ventas', description: 'Cualifica leads y agenda reuniones comerciales', prompt: `Eres un agente comercial profesional. Tu objetivo es cualificar leads, responder preguntas sobre productos y servicios, y agendar reuniones con el equipo de ventas. Sé proactivo pero no invasivo. Responde siempre en el mismo idioma que el cliente.` },
+  admin: { name: 'Agente Administrativo', description: 'Procesa documentos y actualiza bases de datos', prompt: `Eres un asistente administrativo eficiente. Tu objetivo es procesar solicitudes administrativas, extraer información de documentos y coordinar tareas internas. Sé preciso y metódico en tus respuestas.` }
 }
 
 export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([])
+  const [stats, setStats] = useState<Stats | null>(null)
   const [activeConv, setActiveConv] = useState<Conv | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -33,12 +27,12 @@ export default function Dashboard() {
   const [gmailResult, setGmailResult] = useState<string | null>(null)
   const [autoReply, setAutoReply] = useState(false)
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
-  const [view, setView] = useState<'dashboard' | 'conversations' | 'agents' | 'new-agent'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'stats' | 'conversations' | 'agents' | 'new-agent'>('dashboard')
   const [newAgent, setNewAgent] = useState({ name: '', description: '', prompt: '', type: 'support' })
   const [creating, setCreating] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { fetchData(); fetchConfig() }, [])
+  useEffect(() => { fetchData(); fetchConfig(); fetchStats() }, [])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function fetchData() {
@@ -46,6 +40,12 @@ export default function Dashboard() {
     const data = await res.json()
     setAgents(data)
     if (data.length > 0 && !activeAgentId) setActiveAgentId(data[0].id)
+  }
+
+  async function fetchStats() {
+    const res = await fetch('/api/stats')
+    const data = await res.json()
+    setStats(data)
   }
 
   async function fetchConfig() {
@@ -74,71 +74,37 @@ export default function Dashboard() {
         body: JSON.stringify(newAgent)
       })
       const data = await res.json()
-      if (data.id) {
-        await fetchData()
-        setView('agents')
-        setNewAgent({ name: '', description: '', prompt: '', type: 'support' })
-      }
-    } finally {
-      setCreating(false)
-    }
+      if (data.id) { await fetchData(); await fetchStats(); setView('agents'); setNewAgent({ name: '', description: '', prompt: '', type: 'support' }) }
+    } finally { setCreating(false) }
   }
 
   async function deleteAgent(id: string) {
     if (!confirm('¿Eliminar este agente?')) return
-    await fetch('/api/agents', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
-    })
-    await fetchData()
+    await fetch('/api/agents', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    await fetchData(); await fetchStats()
   }
 
   async function sendMessage() {
     if (!input.trim() || loading || !activeAgentId) return
     const userMsg = input.trim()
-    setInput('')
-    setLoading(true)
+    setInput(''); setLoading(true)
     setMessages(prev => [...prev, { role: 'user', content: userMsg, createdAt: new Date().toISOString() }])
     try {
-      const res = await fetch('/api/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: activeAgentId, message: userMsg }),
-      })
+      const res = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId: activeAgentId, message: userMsg }) })
       const data = await res.json()
-      if (data.reply) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply, createdAt: new Date().toISOString() }])
-        fetchData()
-      }
-    } finally {
-      setLoading(false)
-    }
+      if (data.reply) { setMessages(prev => [...prev, { role: 'assistant', content: data.reply, createdAt: new Date().toISOString() }]); fetchData(); fetchStats() }
+    } finally { setLoading(false) }
   }
 
   async function processEmails(agentId: string) {
-    setProcessing(true)
-    setGmailResult(null)
+    setProcessing(true); setGmailResult(null)
     try {
-      const res = await fetch('/api/gmail/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId }),
-      })
+      const res = await fetch('/api/gmail/process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId }) })
       const data = await res.json()
-      if (data.error) {
-        setGmailResult('Error: ' + data.error)
-      } else {
-        setGmailResult(`Procesados ${data.processed} emails nuevos`)
-        fetchData()
-      }
-    } finally {
-      setProcessing(false)
-    }
+      setGmailResult(data.error ? 'Error: ' + data.error : `Procesados ${data.processed} emails nuevos`)
+      if (!data.error) { fetchData(); fetchStats() }
+    } finally { setProcessing(false) }
   }
-
-  const totalConvs = agents.reduce((a, ag) => a + ag.conversations.length, 0)
-  const totalMsgs = agents.reduce((a, ag) => a + ag.conversations.reduce((b, c) => b + c.messages.length, 0), 0)
 
   const s = {
     app: { display: 'flex', minHeight: '100vh', background: '#080808', color: '#d4d0c8', fontFamily: "'IBM Plex Mono', monospace", fontSize: 13 } as any,
@@ -152,9 +118,11 @@ export default function Dashboard() {
     pageTitle: { fontSize: 11, letterSpacing: '0.2em', color: '#555' } as any,
     content: { flex: 1, overflow: 'auto', padding: '2rem' } as any,
     grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' } as any,
+    grid4: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' } as any,
     card: { background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '1.25rem 1.5rem' } as any,
     cardLabel: { fontSize: 10, letterSpacing: '0.18em', color: '#444', marginBottom: '0.5rem' } as any,
     cardValue: { fontSize: 28, fontWeight: 500, color: '#d4d0c8' } as any,
+    cardSub: { fontSize: 10, color: '#2a2a2a', marginTop: '0.25rem' } as any,
     section: { marginBottom: '2rem' } as any,
     sectionTitle: { fontSize: 10, letterSpacing: '0.18em', color: '#444', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid #111' } as any,
     convRow: (active: boolean) => ({ padding: '0.75rem 1rem', border: '1px solid #1a1a1a', borderRadius: 4, marginBottom: '0.5rem', cursor: 'pointer', background: active ? '#141414' : '#0f0f0f', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }) as any,
@@ -174,6 +142,19 @@ export default function Dashboard() {
     toggle: (active: boolean) => ({ width: 40, height: 22, borderRadius: 11, background: active ? '#4ade80' : '#222', position: 'relative' as any, cursor: 'pointer', transition: 'background 0.2s', border: 'none', outline: 'none' }) as any,
     toggleDot: (active: boolean) => ({ position: 'absolute' as any, top: 3, left: active ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }) as any,
     templateBtn: (active: boolean) => ({ padding: '0.5rem 1rem', border: `1px solid ${active ? '#4ade80' : '#222'}`, borderRadius: 4, background: active ? '#0d2010' : '#0f0f0f', color: active ? '#4ade80' : '#444', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' }) as any,
+    logoutBtn: { background: 'transparent', border: 'none', color: '#2a2a2a', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer', padding: '0 1.5rem' } as any,
+  }
+
+  const navItems = [
+    { key: 'dashboard', label: 'PANEL' },
+    { key: 'stats', label: 'ESTADÍSTICAS' },
+    { key: 'conversations', label: 'CONVERSACIONES' },
+    { key: 'agents', label: 'AGENTES' },
+  ]
+
+  const pageTitle: Record<string, string> = {
+    dashboard: 'PANEL DE CONTROL', stats: 'ESTADÍSTICAS', conversations: 'CONVERSACIONES',
+    agents: 'AGENTES', 'new-agent': 'NUEVO AGENTE'
   }
 
   return (
@@ -183,23 +164,22 @@ export default function Dashboard() {
           <div style={s.dot} />
           <span style={s.logoText}>AXIORA</span>
         </div>
-        {[
-          { key: 'dashboard', label: 'PANEL' },
-          { key: 'conversations', label: 'CONVERSACIONES' },
-          { key: 'agents', label: 'AGENTES' },
-        ].map(item => (
+        {navItems.map(item => (
           <div key={item.key} style={s.navItem(view === item.key || (view === 'new-agent' && item.key === 'agents'))} onClick={() => setView(item.key as any)}>
             {item.label}
           </div>
         ))}
-        <div style={{ marginTop: 'auto', padding: '0 1.5rem' }}>
-          <div style={{ fontSize: 9, color: '#2a2a2a', letterSpacing: '0.1em' }}>v0.1.0-alpha</div>
+        <div style={{ marginTop: 'auto' }}>
+          <button style={s.logoutBtn} onClick={() => { document.cookie = 'token=; Max-Age=0; path=/'; window.location.href = '/login' }}>
+            CERRAR SESIÓN
+          </button>
+          <div style={{ fontSize: 9, color: '#1a1a1a', letterSpacing: '0.1em', padding: '0.5rem 1.5rem' }}>v0.1.0-alpha</div>
         </div>
       </aside>
 
       <main style={s.main}>
         <div style={s.topbar}>
-          <span style={s.pageTitle}>{view === 'dashboard' ? 'PANEL DE CONTROL' : view === 'conversations' ? 'CONVERSACIONES' : view === 'new-agent' ? 'NUEVO AGENTE' : 'AGENTES'}</span>
+          <span style={s.pageTitle}>{pageTitle[view]}</span>
           <span style={{ fontSize: 10, color: '#2a2a2a' }}>{new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</span>
         </div>
 
@@ -210,15 +190,16 @@ export default function Dashboard() {
               <div style={s.grid}>
                 <div style={s.card}>
                   <div style={s.cardLabel}>AGENTES ACTIVOS</div>
-                  <div style={s.cardValue}>{agents.length}</div>
+                  <div style={s.cardValue}>{stats?.totalAgents ?? 0}</div>
                 </div>
                 <div style={s.card}>
                   <div style={s.cardLabel}>CONVERSACIONES</div>
-                  <div style={s.cardValue}>{totalConvs}</div>
+                  <div style={s.cardValue}>{stats?.totalConversations ?? 0}</div>
                 </div>
                 <div style={s.card}>
-                  <div style={s.cardLabel}>MENSAJES TOTALES</div>
-                  <div style={s.cardValue}>{totalMsgs}</div>
+                  <div style={s.cardLabel}>MENSAJES HOY</div>
+                  <div style={s.cardValue}>{stats?.messagesToday ?? 0}</div>
+                  <div style={s.cardSub}>{stats?.messagesThisWeek ?? 0} esta semana</div>
                 </div>
               </div>
               <div style={s.section}>
@@ -232,7 +213,67 @@ export default function Dashboard() {
                     <span style={s.badge(c.status)}>{c.status.toUpperCase()}</span>
                   </div>
                 ))}
-                {totalConvs === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>Sin actividad aún</div>}
+                {(stats?.totalConversations ?? 0) === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>Sin actividad aún</div>}
+              </div>
+            </>
+          )}
+
+          {view === 'stats' && stats && (
+            <>
+              <div style={s.grid4}>
+                <div style={s.card}>
+                  <div style={s.cardLabel}>MENSAJES HOY</div>
+                  <div style={s.cardValue}>{stats.messagesToday}</div>
+                </div>
+                <div style={s.card}>
+                  <div style={s.cardLabel}>ESTA SEMANA</div>
+                  <div style={s.cardValue}>{stats.messagesThisWeek}</div>
+                </div>
+                <div style={s.card}>
+                  <div style={s.cardLabel}>RESPUESTAS IA</div>
+                  <div style={s.cardValue}>{stats.autoReplies}</div>
+                </div>
+                <div style={s.card}>
+                  <div style={s.cardLabel}>CONV. ABIERTAS</div>
+                  <div style={s.cardValue}>{stats.openConversations}</div>
+                </div>
+              </div>
+
+              <div style={s.section}>
+                <div style={s.sectionTitle}>RENDIMIENTO POR AGENTE</div>
+                {stats.agentStats.map(ag => (
+                  <div key={ag.id} style={{ ...s.card, marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: '#d4d0c8', marginBottom: 4 }}>{ag.name}</div>
+                      <div style={{ fontSize: 10, color: '#444' }}>{ag.conversations} conversaciones · {ag.messages} mensajes</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 20, fontWeight: 500, color: '#4ade80' }}>{ag.messages}</div>
+                      <div style={{ fontSize: 9, color: '#444', letterSpacing: '0.1em' }}>MENSAJES</div>
+                    </div>
+                  </div>
+                ))}
+                {stats.agentStats.length === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>Sin datos aún</div>}
+              </div>
+
+              <div style={s.section}>
+                <div style={s.sectionTitle}>RESUMEN GLOBAL</div>
+                <div style={{ ...s.card }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                    <div>
+                      <div style={s.cardLabel}>TOTAL MENSAJES</div>
+                      <div style={{ fontSize: 22, fontWeight: 500 }}>{stats.totalMessages}</div>
+                    </div>
+                    <div>
+                      <div style={s.cardLabel}>TOTAL CONV.</div>
+                      <div style={{ fontSize: 22, fontWeight: 500 }}>{stats.totalConversations}</div>
+                    </div>
+                    <div>
+                      <div style={s.cardLabel}>AGENTES</div>
+                      <div style={{ fontSize: 22, fontWeight: 500 }}>{stats.totalAgents}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           )}
@@ -250,7 +291,7 @@ export default function Dashboard() {
                     <span style={s.badge(c.status)}>{c.status.toUpperCase()}</span>
                   </div>
                 ))}
-                {totalConvs === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>Sin conversaciones</div>}
+                {agents.length === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>Sin conversaciones</div>}
               </div>
               <div style={s.chatArea}>
                 {activeConv ? (
@@ -306,7 +347,6 @@ export default function Dashboard() {
                       <button style={s.btnDanger} onClick={() => deleteAgent(ag.id)}>ELIMINAR</button>
                     </div>
                   </div>
-
                   <div style={{ borderTop: '1px solid #1a1a1a', marginTop: '1rem', paddingTop: '1rem' }}>
                     <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '1rem' }}>INTEGRACIONES GMAIL</div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#111', borderRadius: 4, border: '1px solid #1a1a1a' }}>
@@ -324,11 +364,7 @@ export default function Dashboard() {
                         {processing ? 'PROCESANDO...' : 'PROCESAR EMAILS'}
                       </button>
                     </div>
-                    {gmailResult && (
-                      <div style={{ marginTop: '0.75rem', fontSize: 11, color: gmailResult.startsWith('Error') ? '#ef4444' : '#4ade80' }}>
-                        {gmailResult}
-                      </div>
-                    )}
+                    {gmailResult && <div style={{ marginTop: '0.75rem', fontSize: 11, color: gmailResult.startsWith('Error') ? '#ef4444' : '#4ade80' }}>{gmailResult}</div>}
                   </div>
                 </div>
               ))}
@@ -356,7 +392,6 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-
               <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1rem' }}>
                 <div>
                   <label style={s.label}>NOMBRE DEL AGENTE</label>
@@ -368,7 +403,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <label style={s.label}>INSTRUCCIONES DEL AGENTE (PROMPT)</label>
-                  <textarea style={s.textarea} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder="Define cómo debe comportarse el agente, su tono, qué puede y no puede hacer..." rows={8} />
+                  <textarea style={s.textarea} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder="Define cómo debe comportarse el agente..." rows={8} />
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   <button style={s.btn(creating || !newAgent.name || !newAgent.prompt)} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>
