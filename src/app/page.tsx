@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'resolved'>('all')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { fetchData(); fetchConfig(); fetchStats() }, [])
@@ -126,6 +127,13 @@ export default function Dashboard() {
       setGmailResult(data.error ? 'Error: ' + data.error : `Procesados ${data.processed} emails nuevos`)
       if (!data.error) { fetchData(); fetchStats() }
     } finally { setProcessing(false) }
+  }
+
+  function copyWidgetCode(agentId: string) {
+    const code = `<script>\n  window.AxioraConfig = {\n    agentId: '${agentId}',\n    apiUrl: 'https://axiora-murex.vercel.app',\n    title: 'Soporte',\n    greeting: '¡Hola! ¿En qué puedo ayudarte?'\n  }\n</script>\n<script src="https://axiora-murex.vercel.app/widget.js"></script>`
+    navigator.clipboard.writeText(code)
+    setCopiedId(agentId)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   const allConvs = agents.flatMap(ag => ag.conversations.map(c => ({ ...c, agentName: ag.name, agentId: ag.id })))
@@ -362,6 +370,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
+
                   <div style={{ borderTop: '1px solid #1a1a1a', marginTop: '1rem', paddingTop: '1rem' }}>
                     <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '1rem' }}>INTEGRACIÓN GMAIL</div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#111', borderRadius: 4, border: '1px solid #1a1a1a' }}>
@@ -381,6 +390,21 @@ export default function Dashboard() {
                     </div>
                     {gmailResult && <div style={{ marginTop: '0.75rem', fontSize: 11, color: gmailResult.startsWith('Error') ? '#ef4444' : '#4ade80' }}>{gmailResult}</div>}
                   </div>
+
+                  <div style={{ borderTop: '1px solid #1a1a1a', marginTop: '1rem', paddingTop: '1rem' }}>
+                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.75rem' }}>WIDGET EMBEBIBLE</div>
+                    <div style={{ fontSize: 11, color: '#555', marginBottom: '0.75rem' }}>Pega este código en tu web para añadir el chat:</div>
+                    <div style={{ background: '#080808', border: '1px solid #111', borderRadius: 4, padding: '0.875rem', fontSize: 10, color: '#4ade80', fontFamily: 'monospace', lineHeight: 1.8, whiteSpace: 'pre' as any, overflowX: 'auto' as any }}>
+                      {`<script>\n  window.AxioraConfig = {\n    agentId: '${ag.id}',\n    apiUrl: 'https://axiora-murex.vercel.app',\n    title: 'Soporte',\n    greeting: '¡Hola! ¿En qué puedo ayudarte?'\n  }\n</script>\n<script src="https://axiora-murex.vercel.app/widget.js"></script>`}
+                    </div>
+                    <button
+                      onClick={() => copyWidgetCode(ag.id)}
+                      style={{ ...s.btnOutline, marginTop: '0.5rem', fontSize: 10 }}
+                    >
+                      {copiedId === ag.id ? 'COPIADO' : 'COPIAR CÓDIGO'}
+                    </button>
+                  </div>
+
                 </div>
               ))}
               {agents.length === 0 && (
