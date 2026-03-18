@@ -6,6 +6,10 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
   const isPublic = path === '/login' || path === '/register' || path === '/landing'
 
+  if (!token && path === '/') {
+    return NextResponse.redirect(new URL('/landing', request.url))
+  }
+
   if (!token && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
