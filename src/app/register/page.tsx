@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-export default function Login() {
+export default function Register() {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -13,16 +14,16 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ name, email, password }),
     })
     if (res.ok) {
-      router.push('/')
+      router.push('/login')
     } else {
       const data = await res.json()
-      setError(data.error || 'Error al iniciar sesión')
+      setError(data.error || 'Error al registrarse')
       setLoading(false)
     }
   }
@@ -34,8 +35,12 @@ export default function Login() {
           <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px #4ade80' }} />
           <span style={{ fontSize: 12, letterSpacing: '0.2em', color: '#888' }}>AXIORA</span>
         </div>
-        <div style={{ fontSize: 11, letterSpacing: '0.15em', color: '#444', marginBottom: '2rem' }}>ACCESO AL SISTEMA</div>
+        <div style={{ fontSize: 11, letterSpacing: '0.15em', color: '#444', marginBottom: '2rem' }}>CREAR CUENTA</div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.4rem' }}>NOMBRE</div>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} required style={{ width: '100%', background: '#080808', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none', boxSizing: 'border-box' as any }} />
+          </div>
           <div>
             <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.4rem' }}>EMAIL</div>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={{ width: '100%', background: '#080808', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none', boxSizing: 'border-box' as any }} />
@@ -46,11 +51,11 @@ export default function Login() {
           </div>
           {error && <div style={{ fontSize: 11, color: '#ef4444' }}>{error}</div>}
           <button type="submit" disabled={loading} style={{ background: loading ? '#1a1a1a' : '#d4d0c8', color: '#080808', border: 'none', borderRadius: 4, padding: '0.7rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.12em', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '0.5rem' }}>
-            {loading ? 'VERIFICANDO...' : 'ENTRAR'}
+            {loading ? 'CREANDO...' : 'CREAR CUENTA'}
           </button>
-          <div style={{ textAlign: 'center', fontSize: 10, color: '#444', marginTop: '0.5rem' }}>
-            ¿No tienes cuenta?{' '}
-            <a href="/register" style={{ color: '#888', textDecoration: 'none' }}>REGISTRARSE</a>
+          <div style={{ textAlign: 'center', fontSize: 10, color: '#444' }}>
+            ¿Ya tienes cuenta?{' '}
+            <a href="/login" style={{ color: '#888', textDecoration: 'none' }}>INICIAR SESIÓN</a>
           </div>
         </form>
       </div>
