@@ -7,11 +7,11 @@ import { getUserId } from '@/lib/session'
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter })
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const userId = await getUserId()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const { id } = await params
+  const { id } = await context.params
   const { status } = await req.json()
   const conv = await prisma.conversation.findUnique({
     where: { id },
