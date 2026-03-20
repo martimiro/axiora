@@ -355,6 +355,7 @@ export default function Dashboard() {
               </div>
               {agents.map(ag => (
                 <div key={ag.id} style={{ ...s.card, marginBottom: '1rem' }}>
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: '#d4d0c8', marginBottom: 4 }}>{ag.name}</div>
@@ -380,9 +381,6 @@ export default function Dashboard() {
                       </div>
                       <button style={s.toggle(autoReply)} onClick={toggleAutoReply}>
                         <div style={s.toggleDot(autoReply)} />
-                  <div style={{ borderTop: "1px solid #1a1a1a", marginTop: "1rem", paddingTop: "1rem" }}>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "#444", marginBottom: "0.75rem" }}>WIDGET EMBEBIBLE</div>
-                    <div style={{ fontSize: 11, color: "#555", marginBottom: "0.75rem" }}>Pega este código en tu web:</div>
                       </button>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as any }}>
@@ -400,10 +398,7 @@ export default function Dashboard() {
                     <div style={{ background: '#080808', border: '1px solid #111', borderRadius: 4, padding: '0.875rem', fontSize: 10, color: '#4ade80', fontFamily: 'monospace', lineHeight: 1.8, whiteSpace: 'pre' as any, overflowX: 'auto' as any }}>
                       {`<script>\n  window.AxioraConfig = {\n    agentId: '${ag.id}',\n    apiUrl: 'https://axiora-murex.vercel.app',\n    title: 'Soporte',\n    greeting: '¡Hola! ¿En qué puedo ayudarte?'\n  }\n</script>\n<script src="https://axiora-murex.vercel.app/widget.js"></script>`}
                     </div>
-                    <button
-                      onClick={() => copyWidgetCode(ag.id)}
-                      style={{ ...s.btnOutline, marginTop: '0.5rem', fontSize: 10 }}
-                    >
+                    <button onClick={() => copyWidgetCode(ag.id)} style={{ ...s.btnOutline, marginTop: '0.5rem', fontSize: 10 }}>
                       {copiedId === ag.id ? 'COPIADO' : 'COPIAR CÓDIGO'}
                     </button>
                   </div>
