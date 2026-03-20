@@ -18,7 +18,7 @@ export async function notifyOperator({
   const dashboardUrl = `${process.env.NEXTAUTH_URL}/?conv=${conversationId}`
 
   await resend.emails.send({
-    from: 'Axiora <notificaciones@axiora.ai>',
+from: 'Axiora <onboarding@resend.dev>',
     to: operatorEmail,
     subject: `Nuevo mensaje gestionado por ${agentName}`,
     html: `
