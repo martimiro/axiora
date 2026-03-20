@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@/generated/prisma'
-import { getUserId } from '@/lib/session'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter })
@@ -16,10 +15,9 @@ const oauth2Client = new google.auth.OAuth2(
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
-  if (!code) return NextResponse.json({ error: 'No code' }, { status: 400 })
+  const userId = req.nextUrl.searchParams.get('state')
 
-  const userId = await getUserId()
-  if (!userId) return NextResponse.redirect(new URL('/login', process.env.NEXTAUTH_URL!))
+  if (!code || !userId) return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400 })
 
   const { tokens } = await oauth2Client.getToken(code)
 
