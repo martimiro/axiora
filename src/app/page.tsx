@@ -380,7 +380,6 @@ export default function Dashboard() {
                       </div>
                       <button style={s.toggle(autoReply)} onClick={toggleAutoReply}>
                         <div style={s.toggleDot(autoReply)} />
-                  </div>
                   <div style={{ borderTop: "1px solid #1a1a1a", marginTop: "1rem", paddingTop: "1rem" }}>
                     <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "#444", marginBottom: "0.75rem" }}>WIDGET EMBEBIBLE</div>
                     <div style={{ fontSize: 11, color: "#555", marginBottom: "0.75rem" }}>Pega este código en tu web:</div>
