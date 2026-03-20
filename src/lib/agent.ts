@@ -47,5 +47,23 @@ export async function runAgent(agentId: string, userMessage: string, sessionId?:
     data: { conversationId: conversation.id, role: 'assistant', content: reply },
   })
 
+  try {
+    const userWithEmail = await prisma.user.findUnique({
+      where: { id: agent.userId }
+    })
+    if (userWithEmail?.email && process.env.RESEND_API_KEY) {
+      const { notifyOperator } = await import('./notifications')
+      await notifyOperator({
+        operatorEmail: userWithEmail.email,
+        agentName: agent.name,
+        conversationId: conversation.id,
+        message: userMessage,
+        reply,
+      })
+    }
+  } catch (e) {
+    console.error('Error enviando notificación:', e)
+  }
+
   return { reply, conversationId: conversation.id }
 }
