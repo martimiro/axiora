@@ -16,7 +16,7 @@ function getOAuthClient() {
 }
 
 export async function getGmailClient() {
-  const integration = await prisma.gmailIntegration.findUnique({ where: { id: 'default' } })
+const integration = await prisma.gmailIntegration.findFirst()
   if (!integration) throw new Error('Gmail no conectado')
 
   const auth = getOAuthClient()
@@ -62,7 +62,9 @@ export async function processNewEmails(agentId: string) {
     )
 
     // Responder al email
-	const config = await prisma.config.findUnique({ where: { key: 'gmail_auto_reply' } })
+const agentData = await prisma.agent.findUnique({ where: { id: agentId } })
+const userId = agentData?.userId || ''
+const config = await prisma.config.findFirst({ where: { key: `gmail_auto_reply_${userId}`, userId } })
 	const autoReply = config?.value === 'true'
 	if (autoReply) {
   		await sendReply(gmail, msg.id!, from, subject, reply)
