@@ -50,11 +50,14 @@ export default function Dashboard() {
   const t = m?.dashboard
 
   async function fetchData() {
-    const res = await fetch('/api/conversations')
-    const data = await res.json()
+  const res = await fetch('/api/conversations')
+  if (!res.ok) return
+  const data = await res.json()
+  if (Array.isArray(data)) {
     setAgents(data)
     if (data.length > 0 && !activeAgentId) setActiveAgentId(data[0].id)
   }
+}
 
   async function fetchStats() {
     const res = await fetch('/api/stats')
@@ -146,7 +149,7 @@ export default function Dashboard() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const allConvs = agents.flatMap(ag => ag.conversations.map(c => ({ ...c, agentName: ag.name, agentId: ag.id })))
+  const allConvs = (Array.isArray(agents) ? agents : []).flatMap(ag => ag.conversations.map(c => ({ ...c, agentName: ag.name, agentId: ag.id })))
   const filteredConvs = allConvs.filter(c => filterStatus === 'all' ? true : c.status === filterStatus)
 
   const s = {
@@ -209,7 +212,7 @@ export default function Dashboard() {
     <div style={s.app}>
       <aside style={s.sidebar}>
         <div style={s.logo}>
-          <div style={s.dot} />
+          <div style={s.dot} className="dot-pulse" />
           <span style={s.logoText}>AXIORA</span>
         </div>
         {navItems.map(item => (
@@ -232,8 +235,7 @@ export default function Dashboard() {
           <span style={{ fontSize: 10, color: '#2a2a2a' }}>{new Date().toLocaleDateString('ca', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</span>
         </div>
 
-        <div style={s.content}>
-
+<div style={s.content} key={view} className="view-enter">
           {view === 'dashboard' && (
             <>
               <div style={s.grid}>
@@ -254,7 +256,7 @@ export default function Dashboard() {
               <div style={s.section}>
                 <div style={s.sectionTitle}>{t?.recentActivity || 'ACTIVITAT RECENT'}</div>
                 {allConvs.filter(c => c.status === 'open').slice(0, 5).map(c => (
-                  <div key={c.id} style={s.convRow(false)} onClick={() => { setView('conversations'); setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}>
+                  <div key={c.id} style={s.convRow(false)} className="card-transition" onClick={() => { setView('conversations'); setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}>
                     <div>
                       <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{(c as any).agentName}</div>
                       <div style={{ color: '#555', fontSize: 11 }}>{c.messages[0]?.content?.slice(0, 60) || '...'}...</div>
@@ -270,10 +272,10 @@ export default function Dashboard() {
           {view === 'stats' && stats && (
             <>
               <div style={s.grid4}>
-                <div style={s.card}><div style={s.cardLabel}>{t?.messagesToday || 'MISSATGES AVUI'}</div><div style={s.cardValue}>{stats.messagesToday}</div></div>
-                <div style={s.card}><div style={s.cardLabel}>{t?.thisWeek || 'AQUESTA SETMANA'}</div><div style={s.cardValue}>{stats.messagesThisWeek}</div></div>
-                <div style={s.card}><div style={s.cardLabel}>{t?.aiReplies || 'RESPOSTES IA'}</div><div style={s.cardValue}>{stats.autoReplies}</div></div>
-                <div style={s.card}><div style={s.cardLabel}>{t?.openConvs || 'CONV. OBERTES'}</div><div style={s.cardValue}>{stats.openConversations}</div></div>
+                <div style={s.card} className="stat-card"><div style={s.cardLabel}>{t?.messagesToday || 'MISSATGES AVUI'}</div><div style={s.cardValue}>{stats.messagesToday}</div></div>
+                <div style={s.card} className="stat-card"><div style={s.cardLabel}>{t?.thisWeek || 'AQUESTA SETMANA'}</div><div style={s.cardValue}>{stats.messagesThisWeek}</div></div>
+                <div style={s.card} className="stat-card"><div style={s.cardLabel}>{t?.aiReplies || 'RESPOSTES IA'}</div><div style={s.cardValue}>{stats.autoReplies}</div></div>
+                <div style={s.card} className="stat-card"><div style={s.cardLabel}>{t?.openConvs || 'CONV. OBERTES'}</div><div style={s.cardValue}>{stats.openConversations}</div></div>
               </div>
               <div style={s.section}>
                 <div style={s.sectionTitle}>{t?.performanceByAgent || 'RENDIMENT PER AGENT'}</div>
@@ -305,7 +307,7 @@ export default function Dashboard() {
                   ))}
                 </div>
                 {filteredConvs.map(c => (
-                  <div key={c.id} style={s.convRow(activeConv?.id === c.id)} onClick={() => { setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}>
+                  <div key={c.id} style={s.convRow(activeConv?.id === c.id)} className="card-transition" onClick={() => { setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}>
                     <div>
                       <div style={{ fontSize: 10, color: '#555', marginBottom: 2 }}>{(c as any).agentName}</div>
                       <div style={{ fontSize: 10, color: '#333' }}>#{c.id.slice(-6).toUpperCase()}</div>
@@ -341,7 +343,7 @@ export default function Dashboard() {
                       {loading && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
                           <span style={{ fontSize: 9, color: '#333', letterSpacing: '0.12em' }}>{t?.agent || 'AGENT'}</span>
-                          <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', fontSize: 12, color: '#444' }}>{t?.processing || 'processant_'}</div>
+                          <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', fontSize: 12, color: '#444' }}><span>{t?.processing ? t.processing.slice(0,-1) : 'processant'}<span className='blink'>_</span></span></div>
                         </div>
                       )}
                       <div ref={bottomRef} />

@@ -24,3 +24,33 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Dashboard animations */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 6px #4ade80; }
+  50% { box-shadow: 0 0 14px #4ade80; }
+}
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.view-enter { animation: fadeSlideIn 0.3s ease forwards; }
+.stat-card { animation: countUp 0.4s ease forwards; }
+.stat-card:nth-child(2) { animation-delay: 0.08s; }
+.stat-card:nth-child(3) { animation-delay: 0.16s; }
+.stat-card:nth-child(4) { animation-delay: 0.24s; }
+.blink { animation: blink 1s infinite; }
+.dot-pulse { animation: pulse-green 2s infinite; }
+.nav-item-hover { transition: color 0.15s, border-color 0.15s; }
+.nav-item-hover:hover { color: #888 !important; }
+.card-transition { transition: background 0.2s, border-color 0.2s, transform 0.2s; }
+.card-transition:hover { transform: translateY(-1px); border-color: #2a2a2a !important; }
