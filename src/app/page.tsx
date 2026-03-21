@@ -12,6 +12,12 @@ type Stats = {
 }
 type DashMessages = { dashboard: Record<string, string> }
 
+const AGENT_TEMPLATES = {
+  support: { name: 'Support Agent', description: 'Manages tickets and answers frequently asked questions', prompt: `You are a friendly and professional support agent. Your goal is to help customers resolve their issues clearly and concisely. Always respond in the same language as the customer. If you cannot resolve the problem, indicate that you will escalate it to a human agent.` },
+  sales: { name: 'Sales Agent', description: 'Qualifies leads and schedules commercial meetings', prompt: `You are a professional sales agent. Your goal is to qualify leads, answer questions about products and services, and schedule meetings with the sales team. Be proactive but not invasive. Always respond in the same language as the customer.` },
+  admin: { name: 'Admin Agent', description: 'Processes documents and updates databases', prompt: `You are an efficient administrative assistant. Your goal is to process administrative requests, extract information from documents and coordinate internal tasks. Be precise and methodical in your responses.` }
+}
+
 export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -134,7 +140,7 @@ export default function Dashboard() {
   }
 
   function copyWidgetCode(agentId: string) {
-    const code = `<script>\n  window.AxioraConfig = {\n    agentId: '${agentId}',\n    apiUrl: 'https://calm-smakager-26cab8.netlify.app',\n    title: 'Suport',\n    greeting: '${t ? "Hola! En què et puc ajudar?" : "Hola! En què et puc ajudar?"}'\n  }\n</script>\n<script src="https://calm-smakager-26cab8.netlify.app/widget.js"></script>`
+    const code = `<script>\n  window.AxioraConfig = {\n    agentId: '${agentId}',\n    apiUrl: 'https://calm-smakager-26cab8.netlify.app',\n    title: 'Support',\n    greeting: 'Hi! How can I help you today?'\n  }\n</script>\n<script src="https://calm-smakager-26cab8.netlify.app/widget.js"></script>`
     navigator.clipboard.writeText(code)
     setCopiedId(agentId)
     setTimeout(() => setCopiedId(null), 2000)
@@ -424,21 +430,21 @@ export default function Dashboard() {
           {view === 'new-agent' && (
             <div style={{ maxWidth: 600 }}>
               <div style={{ marginBottom: '1.5rem' }}>
-                <div style={s.sectionTitle}>{t?.template || 'PLANTILLA'}</div>
+                <div style={s.sectionTitle}>{t?.template || 'TEMPLATE'}</div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' as any }}>
                   {(['support', 'sales', 'admin'] as const).map(key => (
-                    <button key={key} style={s.templateBtn(newAgent.type === key)} onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: key })}>{key.toUpperCase()}</button>
+                    <button key={key} style={s.templateBtn(newAgent.type === key)} onClick={() => setNewAgent({ ...AGENT_TEMPLATES[key], type: key })}>{key.toUpperCase()}</button>
                   ))}
                   <button style={s.templateBtn(newAgent.type === 'custom')} onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: 'custom' })}>CUSTOM</button>
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1rem' }}>
-                <div><label style={s.label}>{t?.agentName || 'NOM DE L\'AGENT'}</label><input style={s.fieldInput} value={newAgent.name} onChange={e => setNewAgent({ ...newAgent, name: e.target.value })} placeholder={t?.agentNamePlaceholder || 'ex. Agent de Suport'} /></div>
-                <div><label style={s.label}>{t?.description || 'DESCRIPCIÓ'}</label><input style={s.fieldInput} value={newAgent.description} onChange={e => setNewAgent({ ...newAgent, description: e.target.value })} placeholder={t?.descriptionPlaceholder || 'ex. Gestiona tickets i preguntes freqüents'} /></div>
-                <div><label style={s.label}>{t?.instructions || 'INSTRUCCIONS DE L\'AGENT (PROMPT)'}</label><textarea style={s.textarea} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder={t?.instructionsPlaceholder || 'Defineix com s\'ha de comportar l\'agent...'} rows={8} /></div>
+                <div><label style={s.label}>{t?.agentName || 'AGENT NAME'}</label><input style={s.fieldInput} value={newAgent.name} onChange={e => setNewAgent({ ...newAgent, name: e.target.value })} placeholder={t?.agentNamePlaceholder || 'e.g. Support Agent'} /></div>
+                <div><label style={s.label}>{t?.description || 'DESCRIPTION'}</label><input style={s.fieldInput} value={newAgent.description} onChange={e => setNewAgent({ ...newAgent, description: e.target.value })} placeholder={t?.descriptionPlaceholder || 'e.g. Manages tickets and FAQs'} /></div>
+                <div><label style={s.label}>{t?.instructions || 'AGENT INSTRUCTIONS (PROMPT)'}</label><textarea style={s.textarea} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder={t?.instructionsPlaceholder || 'Define how the agent should behave...'} rows={8} /></div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button style={s.btn(creating || !newAgent.name || !newAgent.prompt)} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>{creating ? (t?.creating || 'CREANT...') : (t?.createAgent || 'CREAR AGENT')}</button>
-                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => setView('agents')}>{t?.cancel || 'CANCEL·LAR'}</button>
+                  <button style={s.btn(creating || !newAgent.name || !newAgent.prompt)} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>{creating ? (t?.creating || 'CREATING...') : (t?.createAgent || 'CREATE AGENT')}</button>
+                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => setView('agents')}>{t?.cancel || 'CANCEL'}</button>
                 </div>
               </div>
             </div>
@@ -447,12 +453,12 @@ export default function Dashboard() {
           {view === 'edit-agent' && editingAgent && (
             <div style={{ maxWidth: 600 }}>
               <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1rem' }}>
-                <div><label style={s.label}>{t?.agentName || 'NOM DE L\'AGENT'}</label><input style={s.fieldInput} value={editingAgent.name} onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })} /></div>
-                <div><label style={s.label}>{t?.description || 'DESCRIPCIÓ'}</label><input style={s.fieldInput} value={editingAgent.description} onChange={e => setEditingAgent({ ...editingAgent, description: e.target.value })} /></div>
-                <div><label style={s.label}>{t?.instructions || 'INSTRUCCIONS DE L\'AGENT (PROMPT)'}</label><textarea style={s.textarea} value={editingAgent.prompt} onChange={e => setEditingAgent({ ...editingAgent, prompt: e.target.value })} rows={10} /></div>
+                <div><label style={s.label}>{t?.agentName || 'AGENT NAME'}</label><input style={s.fieldInput} value={editingAgent.name} onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })} /></div>
+                <div><label style={s.label}>{t?.description || 'DESCRIPTION'}</label><input style={s.fieldInput} value={editingAgent.description} onChange={e => setEditingAgent({ ...editingAgent, description: e.target.value })} /></div>
+                <div><label style={s.label}>{t?.instructions || 'AGENT INSTRUCTIONS (PROMPT)'}</label><textarea style={s.textarea} value={editingAgent.prompt} onChange={e => setEditingAgent({ ...editingAgent, prompt: e.target.value })} rows={10} /></div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button style={s.btn(saving)} disabled={saving} onClick={saveAgent}>{saving ? (t?.saving || 'GUARDANT...') : (t?.saveChanges || 'GUARDAR CANVIS')}</button>
-                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => { setView('agents'); setEditingAgent(null) }}>{t?.cancel || 'CANCEL·LAR'}</button>
+                  <button style={s.btn(saving)} disabled={saving} onClick={saveAgent}>{saving ? (t?.saving || 'SAVING...') : (t?.saveChanges || 'SAVE CHANGES')}</button>
+                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => { setView('agents'); setEditingAgent(null) }}>{t?.cancel || 'CANCEL'}</button>
                 </div>
               </div>
             </div>

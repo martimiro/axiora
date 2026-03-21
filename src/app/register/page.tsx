@@ -5,7 +5,8 @@ import LocaleSwitcher from '@/components/LocaleSwitcher'
 
 type Messages = { auth: Record<string, string> }
 
-export default function Login() {
+export default function Register() {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -23,13 +24,13 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ name, email, password }),
     })
     if (res.ok) {
-      router.push('/')
+      router.push('/login')
     } else {
       const data = await res.json()
       setError(data.error || 'Error')
@@ -49,9 +50,13 @@ export default function Login() {
           </div>
           <LocaleSwitcher />
         </div>
-        <div style={{ fontSize: 14, letterSpacing: '0.15em', color: '#d4d0c8', marginBottom: '0.5rem' }}>{t?.loginTitle || 'BENVINGUT'}</div>
-        <div style={{ fontSize: 11, letterSpacing: '0.1em', color: '#444', marginBottom: '2rem' }}>{t?.loginSubtitle || 'Inicia sessió al teu compte'}</div>
+        <div style={{ fontSize: 14, letterSpacing: '0.15em', color: '#d4d0c8', marginBottom: '0.5rem' }}>{t?.registerTitle || 'CREAR COMPTE'}</div>
+        <div style={{ fontSize: 11, letterSpacing: '0.1em', color: '#444', marginBottom: '2rem' }}>{t?.registerSubtitle || 'Comença gratis avui'}</div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.4rem' }}>{t?.name || 'NOM'}</div>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} required style={{ width: '100%', background: '#080808', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none', boxSizing: 'border-box' as any }} />
+          </div>
           <div>
             <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.4rem' }}>{t?.email || 'EMAIL'}</div>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={{ width: '100%', background: '#080808', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none', boxSizing: 'border-box' as any }} />
@@ -62,11 +67,11 @@ export default function Login() {
           </div>
           {error && <div style={{ fontSize: 11, color: '#ef4444' }}>{error}</div>}
           <button type="submit" disabled={loading} style={{ background: loading ? '#1a1a1a' : '#d4d0c8', color: '#080808', border: 'none', borderRadius: 4, padding: '0.7rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.12em', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '0.5rem' }}>
-            {loading ? '...' : (t?.loginBtn || 'ENTRAR')}
+            {loading ? '...' : (t?.registerBtn || 'CREAR COMPTE')}
           </button>
-          <div style={{ textAlign: 'center', fontSize: 10, color: '#444', marginTop: '0.5rem' }}>
-            {t?.noAccount || 'Sense compte?'}{' '}
-            <a href="/register" style={{ color: '#888', textDecoration: 'none' }}>{t?.register || 'REGISTRA\'T'}</a>
+          <div style={{ textAlign: 'center', fontSize: 10, color: '#444' }}>
+            {t?.hasAccount || 'Ja tens compte?'}{' '}
+            <a href="/login" style={{ color: '#888', textDecoration: 'none' }}>{t?.login || 'Inicia sessió'}</a>
           </div>
         </form>
       </div>
