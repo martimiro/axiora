@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import LocaleSwitcher from '@/components/LocaleSwitcher'
 
 type Message = { role: string; content: string; createdAt: string }
 type Conv = { id: string; status: string; updatedAt: string; messages: Message[] }
@@ -9,12 +10,7 @@ type Stats = {
   messagesToday: number; messagesThisWeek: number; autoReplies: number
   openConversations: number; agentStats: { id: string; name: string; conversations: number; messages: number }[]
 }
-
-const AGENT_TEMPLATES = {
-  support: { name: 'Agente de Soporte', description: 'Gestiona tickets y responde preguntas frecuentes', prompt: `Eres un agente de soporte amable y profesional. Tu objetivo es ayudar a los clientes a resolver sus dudas de forma clara y concisa. Responde siempre en el mismo idioma que el cliente. Si no puedes resolver el problema, indica que lo escalarás a un agente humano.` },
-  sales: { name: 'Agente de Ventas', description: 'Cualifica leads y agenda reuniones comerciales', prompt: `Eres un agente comercial profesional. Tu objetivo es cualificar leads, responder preguntas sobre productos y servicios, y agendar reuniones con el equipo de ventas. Sé proactivo pero no invasivo. Responde siempre en el mismo idioma que el cliente.` },
-  admin: { name: 'Agente Administrativo', description: 'Procesa documentos y actualiza bases de datos', prompt: `Eres un asistente administrativo eficiente. Tu objetivo es procesar solicitudes administrativas, extraer información de documentos y coordinar tareas internas. Sé preciso y metódico en tus respuestas.` }
-}
+type DashMessages = { dashboard: Record<string, string> }
 
 export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -34,10 +30,18 @@ export default function Dashboard() {
   const [saving, setSaving] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'resolved'>('all')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [m, setM] = useState<DashMessages | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { fetchData(); fetchConfig(); fetchStats() }, [])
+  useEffect(() => {
+    fetchData(); fetchConfig(); fetchStats()
+    const cookie = document.cookie.split(';').find(c => c.trim().startsWith('locale='))
+    const locale = cookie ? cookie.split('=')[1].trim() : 'ca'
+    import(`../../messages/${locale}.json`).then(mod => setM(mod.default))
+  }, [])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+
+  const t = m?.dashboard
 
   async function fetchData() {
     const res = await fetch('/api/conversations')
@@ -90,7 +94,7 @@ export default function Dashboard() {
   }
 
   async function deleteAgent(id: string) {
-    if (!confirm('¿Eliminar este agente?')) return
+    if (!confirm(t?.confirmDelete || 'Eliminar aquest agent?')) return
     await fetch('/api/agents', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
     await fetchData(); await fetchStats()
   }
@@ -124,13 +128,13 @@ export default function Dashboard() {
     try {
       const res = await fetch('/api/gmail/process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId }) })
       const data = await res.json()
-      setGmailResult(data.error ? 'Error: ' + data.error : `Procesados ${data.processed} emails nuevos`)
+      setGmailResult(data.error ? (t?.errorPrefix || 'Error: ') + data.error : (t?.processed || 'Processats {count} emails nous').replace('{count}', data.processed))
       if (!data.error) { fetchData(); fetchStats() }
     } finally { setProcessing(false) }
   }
 
   function copyWidgetCode(agentId: string) {
-    const code = `<script>\n  window.AxioraConfig = {\n    agentId: '${agentId}',\n    apiUrl: 'https://axiora-murex.vercel.app',\n    title: 'Soporte',\n    greeting: '¡Hola! ¿En qué puedo ayudarte?'\n  }\n</script>\n<script src="https://axiora-murex.vercel.app/widget.js"></script>`
+    const code = `<script>\n  window.AxioraConfig = {\n    agentId: '${agentId}',\n    apiUrl: 'https://calm-smakager-26cab8.netlify.app',\n    title: 'Suport',\n    greeting: '${t ? "Hola! En què et puc ajudar?" : "Hola! En què et puc ajudar?"}'\n  }\n</script>\n<script src="https://calm-smakager-26cab8.netlify.app/widget.js"></script>`
     navigator.clipboard.writeText(code)
     setCopiedId(agentId)
     setTimeout(() => setCopiedId(null), 2000)
@@ -180,15 +184,19 @@ export default function Dashboard() {
   }
 
   const navItems = [
-    { key: 'dashboard', label: 'PANEL' },
-    { key: 'stats', label: 'ESTADÍSTICAS' },
-    { key: 'conversations', label: 'CONVERSACIONES' },
-    { key: 'agents', label: 'AGENTES' },
+    { key: 'dashboard', label: t?.panel || 'PANEL' },
+    { key: 'stats', label: t?.stats || 'ESTADÍSTIQUES' },
+    { key: 'conversations', label: t?.conversations || 'CONVERSES' },
+    { key: 'agents', label: t?.agents || 'AGENTS' },
   ]
 
   const pageTitle: Record<string, string> = {
-    dashboard: 'PANEL DE CONTROL', stats: 'ESTADÍSTICAS', conversations: 'CONVERSACIONES',
-    agents: 'AGENTES', 'new-agent': 'NUEVO AGENTE', 'edit-agent': 'EDITAR AGENTE'
+    dashboard: t?.panelTitle || 'PANELL DE CONTROL',
+    stats: t?.statsTitle || 'ESTADÍSTIQUES',
+    conversations: t?.conversationsTitle || 'CONVERSES',
+    agents: t?.agentsTitle || 'AGENTS',
+    'new-agent': t?.newAgentTitle || 'NOU AGENT',
+    'edit-agent': t?.editAgentTitle || 'EDITAR AGENT',
   }
 
   return (
@@ -203,18 +211,19 @@ export default function Dashboard() {
             {item.label}
           </div>
         ))}
-        <div style={{ marginTop: 'auto' }}>
-          <button style={{ background: 'transparent', border: 'none', color: '#2a2a2a', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer', padding: '0 1.5rem' }} onClick={() => { document.cookie = 'token=; Max-Age=0; path=/'; window.location.href = '/login' }}>
-            CERRAR SESIÓN
+        <div style={{ marginTop: 'auto', padding: '0 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <LocaleSwitcher />
+          <button style={{ background: 'transparent', border: 'none', color: '#2a2a2a', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer', padding: 0, textAlign: 'left' }} onClick={() => { document.cookie = 'token=; Max-Age=0; path=/'; window.location.href = '/login' }}>
+            {t?.logout || 'TANCAR SESSIÓ'}
           </button>
-          <div style={{ fontSize: 9, color: '#1a1a1a', letterSpacing: '0.1em', padding: '0.5rem 1.5rem' }}>v0.1.0-alpha</div>
+          <div style={{ fontSize: 9, color: '#1a1a1a', letterSpacing: '0.1em' }}>v0.1.0-alpha</div>
         </div>
       </aside>
 
       <main style={s.main}>
         <div style={s.topbar}>
           <span style={s.pageTitle}>{pageTitle[view]}</span>
-          <span style={{ fontSize: 10, color: '#2a2a2a' }}>{new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</span>
+          <span style={{ fontSize: 10, color: '#2a2a2a' }}>{new Date().toLocaleDateString('ca', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</span>
         </div>
 
         <div style={s.content}>
@@ -223,31 +232,31 @@ export default function Dashboard() {
             <>
               <div style={s.grid}>
                 <div style={s.card}>
-                  <div style={s.cardLabel}>AGENTES ACTIVOS</div>
+                  <div style={s.cardLabel}>{t?.activeAgents || 'AGENTS ACTIUS'}</div>
                   <div style={s.cardValue}>{stats?.totalAgents ?? 0}</div>
                 </div>
                 <div style={s.card}>
-                  <div style={s.cardLabel}>CONV. ABIERTAS</div>
+                  <div style={s.cardLabel}>{t?.openConvs || 'CONV. OBERTES'}</div>
                   <div style={s.cardValue}>{stats?.openConversations ?? 0}</div>
                 </div>
                 <div style={s.card}>
-                  <div style={s.cardLabel}>MENSAJES HOY</div>
+                  <div style={s.cardLabel}>{t?.messagesToday || 'MISSATGES AVUI'}</div>
                   <div style={s.cardValue}>{stats?.messagesToday ?? 0}</div>
-                  <div style={s.cardSub}>{stats?.messagesThisWeek ?? 0} esta semana</div>
+                  <div style={s.cardSub}>{stats?.messagesThisWeek ?? 0} {t?.thisWeek || 'aquesta setmana'}</div>
                 </div>
               </div>
               <div style={s.section}>
-                <div style={s.sectionTitle}>ACTIVIDAD RECIENTE</div>
+                <div style={s.sectionTitle}>{t?.recentActivity || 'ACTIVITAT RECENT'}</div>
                 {allConvs.filter(c => c.status === 'open').slice(0, 5).map(c => (
                   <div key={c.id} style={s.convRow(false)} onClick={() => { setView('conversations'); setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}>
                     <div>
                       <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{(c as any).agentName}</div>
-                      <div style={{ color: '#555', fontSize: 11 }}>{c.messages[0]?.content?.slice(0, 60) || 'Sin mensajes'}...</div>
+                      <div style={{ color: '#555', fontSize: 11 }}>{c.messages[0]?.content?.slice(0, 60) || '...'}...</div>
                     </div>
                     <span style={s.badge(c.status)}>{c.status.toUpperCase()}</span>
                   </div>
                 ))}
-                {(stats?.openConversations ?? 0) === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>Sin conversaciones abiertas</div>}
+                {(stats?.openConversations ?? 0) === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>{t?.noOpenConvs || 'Sense converses obertes'}</div>}
               </div>
             </>
           )}
@@ -255,26 +264,26 @@ export default function Dashboard() {
           {view === 'stats' && stats && (
             <>
               <div style={s.grid4}>
-                <div style={s.card}><div style={s.cardLabel}>MENSAJES HOY</div><div style={s.cardValue}>{stats.messagesToday}</div></div>
-                <div style={s.card}><div style={s.cardLabel}>ESTA SEMANA</div><div style={s.cardValue}>{stats.messagesThisWeek}</div></div>
-                <div style={s.card}><div style={s.cardLabel}>RESPUESTAS IA</div><div style={s.cardValue}>{stats.autoReplies}</div></div>
-                <div style={s.card}><div style={s.cardLabel}>CONV. ABIERTAS</div><div style={s.cardValue}>{stats.openConversations}</div></div>
+                <div style={s.card}><div style={s.cardLabel}>{t?.messagesToday || 'MISSATGES AVUI'}</div><div style={s.cardValue}>{stats.messagesToday}</div></div>
+                <div style={s.card}><div style={s.cardLabel}>{t?.thisWeek || 'AQUESTA SETMANA'}</div><div style={s.cardValue}>{stats.messagesThisWeek}</div></div>
+                <div style={s.card}><div style={s.cardLabel}>{t?.aiReplies || 'RESPOSTES IA'}</div><div style={s.cardValue}>{stats.autoReplies}</div></div>
+                <div style={s.card}><div style={s.cardLabel}>{t?.openConvs || 'CONV. OBERTES'}</div><div style={s.cardValue}>{stats.openConversations}</div></div>
               </div>
               <div style={s.section}>
-                <div style={s.sectionTitle}>RENDIMIENTO POR AGENTE</div>
+                <div style={s.sectionTitle}>{t?.performanceByAgent || 'RENDIMENT PER AGENT'}</div>
                 {stats.agentStats.map(ag => (
                   <div key={ag.id} style={{ ...s.card, marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontSize: 12, color: '#d4d0c8', marginBottom: 4 }}>{ag.name}</div>
-                      <div style={{ fontSize: 10, color: '#444' }}>{ag.conversations} conversaciones · {ag.messages} mensajes</div>
+                      <div style={{ fontSize: 10, color: '#444' }}>{ag.conversations} {t?.conversations2 || 'converses'} · {ag.messages} {t?.messages || 'missatges'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 20, fontWeight: 500, color: '#4ade80' }}>{ag.messages}</div>
-                      <div style={{ fontSize: 9, color: '#444', letterSpacing: '0.1em' }}>MENSAJES</div>
+                      <div style={{ fontSize: 9, color: '#444', letterSpacing: '0.1em' }}>{t?.messages?.toUpperCase() || 'MISSATGES'}</div>
                     </div>
                   </div>
                 ))}
-                {stats.agentStats.length === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>Sin datos aún</div>}
+                {stats.agentStats.length === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>{t?.noData || 'Sense dades encara'}</div>}
               </div>
             </>
           )}
@@ -285,7 +294,7 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem' }}>
                   {(['all', 'open', 'resolved'] as const).map(f => (
                     <button key={f} style={s.filterBtn(filterStatus === f)} onClick={() => setFilterStatus(f)}>
-                      {f === 'all' ? 'TODAS' : f === 'open' ? 'ABIERTAS' : 'RESUELTAS'}
+                      {f === 'all' ? (t?.allConvs || 'TOTES') : f === 'open' ? (t?.openConvsFilter || 'OBERTES') : (t?.resolvedConvs || 'RESOLTES')}
                     </button>
                   ))}
                 </div>
@@ -295,10 +304,10 @@ export default function Dashboard() {
                       <div style={{ fontSize: 10, color: '#555', marginBottom: 2 }}>{(c as any).agentName}</div>
                       <div style={{ fontSize: 10, color: '#333' }}>#{c.id.slice(-6).toUpperCase()}</div>
                     </div>
-                    <span style={s.badge(c.status)}>{c.status === 'open' ? 'ABIERTA' : 'RESUELTA'}</span>
+                    <span style={s.badge(c.status)}>{c.status === 'open' ? (t?.open || 'OBERTA') : (t?.resolved || 'RESOLTA')}</span>
                   </div>
                 ))}
-                {filteredConvs.length === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>Sin conversaciones</div>}
+                {filteredConvs.length === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>{t?.noConversations || 'Sense converses'}</div>}
               </div>
               <div style={s.chatArea}>
                 {activeConv ? (
@@ -306,18 +315,18 @@ export default function Dashboard() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #111' }}>
                       <div>
                         <span style={{ fontSize: 10, color: '#444', letterSpacing: '0.1em' }}>CONV #{activeConv.id.slice(-6).toUpperCase()}</span>
-                        <span style={{ ...s.badge(activeConv.status), marginLeft: '0.75rem' }}>{activeConv.status === 'open' ? 'ABIERTA' : 'RESUELTA'}</span>
+                        <span style={{ ...s.badge(activeConv.status), marginLeft: '0.75rem' }}>{activeConv.status === 'open' ? (t?.open || 'OBERTA') : (t?.resolved || 'RESOLTA')}</span>
                       </div>
                       {activeConv.status === 'open' ? (
-                        <button style={s.btnOutline} onClick={() => closeConversation(activeConv.id)}>MARCAR RESUELTA</button>
+                        <button style={s.btnOutline} onClick={() => closeConversation(activeConv.id)}>{t?.markResolved || 'MARCAR RESOLTA'}</button>
                       ) : (
-                        <button style={s.btnOutline} onClick={() => reopenConversation(activeConv.id)}>REABRIR</button>
+                        <button style={s.btnOutline} onClick={() => reopenConversation(activeConv.id)}>{t?.reopen || 'REOBRIR'}</button>
                       )}
                     </div>
                     <div style={s.msgArea}>
                       {messages.map((msg, i) => (
                         <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: 3 }}>
-                          <span style={{ fontSize: 9, color: '#333', letterSpacing: '0.12em' }}>{msg.role === 'user' ? 'CLIENTE' : 'AGENTE'}</span>
+                          <span style={{ fontSize: 9, color: '#333', letterSpacing: '0.12em' }}>{msg.role === 'user' ? (t?.client || 'CLIENT') : (t?.agent || 'AGENT')}</span>
                           <div style={{ background: msg.role === 'user' ? '#141414' : '#0f0f0f', border: `1px solid ${msg.role === 'user' ? '#222' : '#1a1a1a'}`, borderRadius: 4, padding: '0.6rem 0.875rem', maxWidth: '70%', fontSize: 12, lineHeight: 1.6 }}>
                             {msg.content}
                           </div>
@@ -325,22 +334,22 @@ export default function Dashboard() {
                       ))}
                       {loading && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-                          <span style={{ fontSize: 9, color: '#333', letterSpacing: '0.12em' }}>AGENTE</span>
-                          <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', fontSize: 12, color: '#444' }}>procesando_</div>
+                          <span style={{ fontSize: 9, color: '#333', letterSpacing: '0.12em' }}>{t?.agent || 'AGENT'}</span>
+                          <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', fontSize: 12, color: '#444' }}>{t?.processing || 'processant_'}</div>
                         </div>
                       )}
                       <div ref={bottomRef} />
                     </div>
                     {activeConv.status === 'open' && (
                       <div style={s.inputRow}>
-                        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder="Responder manualmente..." style={s.input} />
-                        <button onClick={sendMessage} disabled={loading} style={s.btn(loading)}>ENVIAR</button>
+                        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder={t?.replyPlaceholder || 'Respondre manualment...'} style={s.input} />
+                        <button onClick={sendMessage} disabled={loading} style={s.btn(loading)}>{t?.send || 'ENVIAR'}</button>
                       </div>
                     )}
                   </>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#2a2a2a', fontSize: 11, letterSpacing: '0.15em' }}>
-                    SELECCIONA UNA CONVERSACIÓN
+                    {t?.selectConversation || 'SELECCIONA UNA CONVERSA'}
                   </div>
                 )}
               </div>
@@ -350,12 +359,11 @@ export default function Dashboard() {
           {view === 'agents' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <div style={s.sectionTitle}>AGENTES CONFIGURADOS</div>
-                <button style={s.btnGreen} onClick={() => setView('new-agent')}>+ NUEVO AGENTE</button>
+                <div style={s.sectionTitle}>{t?.configuredAgents || 'AGENTS CONFIGURATS'}</div>
+                <button style={s.btnGreen} onClick={() => setView('new-agent')}>{t?.newAgent || '+ NOU AGENT'}</button>
               </div>
               {agents.map(ag => (
                 <div key={ag.id} style={{ ...s.card, marginBottom: '1rem' }}>
-
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: '#d4d0c8', marginBottom: 4 }}>{ag.name}</div>
@@ -363,52 +371,51 @@ export default function Dashboard() {
                       <div style={{ fontSize: 10, color: '#1a1a1a', fontFamily: 'monospace' }}>ID: {ag.id}</div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column' as any, alignItems: 'flex-end', gap: 8 }}>
-                      <span style={s.badge('open')}>ACTIVO</span>
-                      <div style={{ fontSize: 10, color: '#444' }}>{ag.conversations.length} conversaciones</div>
+                      <span style={s.badge('open')}>{t?.active || 'ACTIU'}</span>
+                      <div style={{ fontSize: 10, color: '#444' }}>{ag.conversations.length} {t?.conversations2 || 'converses'}</div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button style={s.btnOutline} onClick={() => { setEditingAgent(ag); setView('edit-agent') }}>EDITAR</button>
-                        <button style={s.btnDanger} onClick={() => deleteAgent(ag.id)}>ELIMINAR</button>
+                        <button style={s.btnOutline} onClick={() => { setEditingAgent(ag); setView('edit-agent') }}>{t?.edit || 'EDITAR'}</button>
+                        <button style={s.btnDanger} onClick={() => deleteAgent(ag.id)}>{t?.delete || 'ELIMINAR'}</button>
                       </div>
                     </div>
                   </div>
 
                   <div style={{ borderTop: '1px solid #1a1a1a', marginTop: '1rem', paddingTop: '1rem' }}>
-                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '1rem' }}>INTEGRACIÓN GMAIL</div>
+                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '1rem' }}>{t?.gmailIntegration || 'INTEGRACIÓ GMAIL'}</div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#111', borderRadius: 4, border: '1px solid #1a1a1a' }}>
                       <div>
-                        <div style={{ fontSize: 12, color: '#d4d0c8', marginBottom: 2 }}>Respuesta automática</div>
-                        <div style={{ fontSize: 10, color: '#444' }}>{autoReply ? 'El agente responde emails automáticamente' : 'El agente lee pero no responde'}</div>
+                        <div style={{ fontSize: 12, color: '#d4d0c8', marginBottom: 2 }}>{t?.autoReply || 'Resposta automàtica'}</div>
+                        <div style={{ fontSize: 10, color: '#444' }}>{autoReply ? (t?.autoReplyOn || "L'agent respon emails automàticament") : (t?.autoReplyOff || "L'agent llegeix però no respon")}</div>
                       </div>
                       <button style={s.toggle(autoReply)} onClick={toggleAutoReply}>
                         <div style={s.toggleDot(autoReply)} />
                       </button>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as any }}>
-                      <a href="/api/gmail/auth" style={s.btnGreen}>CONECTAR GMAIL</a>
+                      <a href="/api/gmail/auth" style={s.btnGreen}>{t?.connectGmail || 'CONNECTAR GMAIL'}</a>
                       <button onClick={() => processEmails(ag.id)} disabled={processing} style={s.btn(processing)}>
-                        {processing ? 'PROCESANDO...' : 'PROCESAR EMAILS'}
+                        {processing ? (t?.processing2 || 'PROCESSANT...') : (t?.processEmails || 'PROCESSAR EMAILS')}
                       </button>
                     </div>
                     {gmailResult && <div style={{ marginTop: '0.75rem', fontSize: 11, color: gmailResult.startsWith('Error') ? '#ef4444' : '#4ade80' }}>{gmailResult}</div>}
                   </div>
 
                   <div style={{ borderTop: '1px solid #1a1a1a', marginTop: '1rem', paddingTop: '1rem' }}>
-                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.75rem' }}>WIDGET EMBEBIBLE</div>
-                    <div style={{ fontSize: 11, color: '#555', marginBottom: '0.75rem' }}>Pega este código en tu web para añadir el chat:</div>
+                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.75rem' }}>{t?.widgetTitle || 'WIDGET EMBEBIBLE'}</div>
+                    <div style={{ fontSize: 11, color: '#555', marginBottom: '0.75rem' }}>{t?.widgetDesc || 'Enganxa aquest codi al teu web per afegir el xat:'}</div>
                     <div style={{ background: '#080808', border: '1px solid #111', borderRadius: 4, padding: '0.875rem', fontSize: 10, color: '#4ade80', fontFamily: 'monospace', lineHeight: 1.8, whiteSpace: 'pre' as any, overflowX: 'auto' as any }}>
-                      {`<script>\n  window.AxioraConfig = {\n    agentId: '${ag.id}',\n    apiUrl: 'https://axiora-murex.vercel.app',\n    title: 'Soporte',\n    greeting: '¡Hola! ¿En qué puedo ayudarte?'\n  }\n</script>\n<script src="https://axiora-murex.vercel.app/widget.js"></script>`}
+                      {`<script>\n  window.AxioraConfig = {\n    agentId: '${ag.id}',\n    apiUrl: 'https://calm-smakager-26cab8.netlify.app'\n  }\n</script>\n<script src="https://calm-smakager-26cab8.netlify.app/widget.js"></script>`}
                     </div>
                     <button onClick={() => copyWidgetCode(ag.id)} style={{ ...s.btnOutline, marginTop: '0.5rem', fontSize: 10 }}>
-                      {copiedId === ag.id ? 'COPIADO' : 'COPIAR CÓDIGO'}
+                      {copiedId === ag.id ? (t?.copied || 'COPIAT') : (t?.copyCode || 'COPIAR CODI')}
                     </button>
                   </div>
-
                 </div>
               ))}
               {agents.length === 0 && (
                 <div style={{ textAlign: 'center', color: '#2a2a2a', marginTop: '3rem' }}>
-                  <div style={{ fontSize: 11, marginBottom: 8 }}>No hay agentes configurados</div>
-                  <button style={s.btnGreen} onClick={() => setView('new-agent')}>+ CREAR PRIMER AGENTE</button>
+                  <div style={{ fontSize: 11, marginBottom: 8 }}>{t?.noAgents || 'No hi ha agents configurats'}</div>
+                  <button style={s.btnGreen} onClick={() => setView('new-agent')}>{t?.createFirst || '+ CREAR PRIMER AGENT'}</button>
                 </div>
               )}
             </div>
@@ -417,21 +424,21 @@ export default function Dashboard() {
           {view === 'new-agent' && (
             <div style={{ maxWidth: 600 }}>
               <div style={{ marginBottom: '1.5rem' }}>
-                <div style={s.sectionTitle}>PLANTILLA</div>
+                <div style={s.sectionTitle}>{t?.template || 'PLANTILLA'}</div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' as any }}>
-                  {Object.entries(AGENT_TEMPLATES).map(([key, tmpl]) => (
-                    <button key={key} style={s.templateBtn(newAgent.type === key)} onClick={() => setNewAgent({ ...tmpl, type: key })}>{key.toUpperCase()}</button>
+                  {(['support', 'sales', 'admin'] as const).map(key => (
+                    <button key={key} style={s.templateBtn(newAgent.type === key)} onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: key })}>{key.toUpperCase()}</button>
                   ))}
-                  <button style={s.templateBtn(newAgent.type === 'custom')} onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: 'custom' })}>PERSONALIZADO</button>
+                  <button style={s.templateBtn(newAgent.type === 'custom')} onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: 'custom' })}>CUSTOM</button>
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1rem' }}>
-                <div><label style={s.label}>NOMBRE DEL AGENTE</label><input style={s.fieldInput} value={newAgent.name} onChange={e => setNewAgent({ ...newAgent, name: e.target.value })} placeholder="ej. Agente de Soporte" /></div>
-                <div><label style={s.label}>DESCRIPCIÓN</label><input style={s.fieldInput} value={newAgent.description} onChange={e => setNewAgent({ ...newAgent, description: e.target.value })} placeholder="ej. Gestiona tickets y preguntas frecuentes" /></div>
-                <div><label style={s.label}>INSTRUCCIONES DEL AGENTE (PROMPT)</label><textarea style={s.textarea} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder="Define cómo debe comportarse el agente..." rows={8} /></div>
+                <div><label style={s.label}>{t?.agentName || 'NOM DE L\'AGENT'}</label><input style={s.fieldInput} value={newAgent.name} onChange={e => setNewAgent({ ...newAgent, name: e.target.value })} placeholder={t?.agentNamePlaceholder || 'ex. Agent de Suport'} /></div>
+                <div><label style={s.label}>{t?.description || 'DESCRIPCIÓ'}</label><input style={s.fieldInput} value={newAgent.description} onChange={e => setNewAgent({ ...newAgent, description: e.target.value })} placeholder={t?.descriptionPlaceholder || 'ex. Gestiona tickets i preguntes freqüents'} /></div>
+                <div><label style={s.label}>{t?.instructions || 'INSTRUCCIONS DE L\'AGENT (PROMPT)'}</label><textarea style={s.textarea} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder={t?.instructionsPlaceholder || 'Defineix com s\'ha de comportar l\'agent...'} rows={8} /></div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button style={s.btn(creating || !newAgent.name || !newAgent.prompt)} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>{creating ? 'CREANDO...' : 'CREAR AGENTE'}</button>
-                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => setView('agents')}>CANCELAR</button>
+                  <button style={s.btn(creating || !newAgent.name || !newAgent.prompt)} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>{creating ? (t?.creating || 'CREANT...') : (t?.createAgent || 'CREAR AGENT')}</button>
+                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => setView('agents')}>{t?.cancel || 'CANCEL·LAR'}</button>
                 </div>
               </div>
             </div>
@@ -440,12 +447,12 @@ export default function Dashboard() {
           {view === 'edit-agent' && editingAgent && (
             <div style={{ maxWidth: 600 }}>
               <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1rem' }}>
-                <div><label style={s.label}>NOMBRE DEL AGENTE</label><input style={s.fieldInput} value={editingAgent.name} onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })} /></div>
-                <div><label style={s.label}>DESCRIPCIÓN</label><input style={s.fieldInput} value={editingAgent.description} onChange={e => setEditingAgent({ ...editingAgent, description: e.target.value })} /></div>
-                <div><label style={s.label}>INSTRUCCIONES DEL AGENTE (PROMPT)</label><textarea style={s.textarea} value={editingAgent.prompt} onChange={e => setEditingAgent({ ...editingAgent, prompt: e.target.value })} rows={10} /></div>
+                <div><label style={s.label}>{t?.agentName || 'NOM DE L\'AGENT'}</label><input style={s.fieldInput} value={editingAgent.name} onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })} /></div>
+                <div><label style={s.label}>{t?.description || 'DESCRIPCIÓ'}</label><input style={s.fieldInput} value={editingAgent.description} onChange={e => setEditingAgent({ ...editingAgent, description: e.target.value })} /></div>
+                <div><label style={s.label}>{t?.instructions || 'INSTRUCCIONS DE L\'AGENT (PROMPT)'}</label><textarea style={s.textarea} value={editingAgent.prompt} onChange={e => setEditingAgent({ ...editingAgent, prompt: e.target.value })} rows={10} /></div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button style={s.btn(saving)} disabled={saving} onClick={saveAgent}>{saving ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}</button>
-                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => { setView('agents'); setEditingAgent(null) }}>CANCELAR</button>
+                  <button style={s.btn(saving)} disabled={saving} onClick={saveAgent}>{saving ? (t?.saving || 'GUARDANT...') : (t?.saveChanges || 'GUARDAR CANVIS')}</button>
+                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => { setView('agents'); setEditingAgent(null) }}>{t?.cancel || 'CANCEL·LAR'}</button>
                 </div>
               </div>
             </div>
