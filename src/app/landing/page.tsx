@@ -94,7 +94,7 @@ function Cursor() {
 }
 
 // Fade section wrapper
-function FadeSection({ children, style, delay = 0 }: { children: React.ReactNode; style?: any; delay?: number }) {
+function FadeSection({ children, style, id, delay = 0 }: { children: React.ReactNode; style?: any; id?: string; delay?: number }) {
   const { ref, visible } = useFadeIn()
   return (
     <section
