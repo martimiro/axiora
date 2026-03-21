@@ -1,6 +1,16 @@
+'use client'
 import Link from 'next/link'
+import { useState } from 'react'
 
 export default function Landing() {
+  const [annual, setAnnual] = useState(false)
+
+  const prices = {
+    basic: annual ? Math.round(29 * 0.85) : 29,
+    pro: annual ? Math.round(99 * 0.85) : 99,
+    enterprise: annual ? Math.round(399 * 0.85) : 399,
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: '#080808', color: '#d4d0c8', fontFamily: "'IBM Plex Mono', monospace", overflowX: 'hidden' }}>
 
@@ -49,10 +59,9 @@ export default function Landing() {
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#222' }} />
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#222' }} />
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#222' }} />
-            <span style={{ fontSize: 10, color: '#333', marginLeft: '0.5rem', letterSpacing: '0.1em' }}>axiora-murex.vercel.app</span>
+            <span style={{ fontSize: 10, color: '#333', marginLeft: '0.5rem', letterSpacing: '0.1em' }}>axiora.app</span>
           </div>
           <div style={{ display: 'flex', minHeight: 400 }}>
-            {/* Sidebar simulado */}
             <div style={{ width: 180, borderRight: '1px solid #111', padding: '1.5rem 0', background: '#080808' }}>
               <div style={{ padding: '0 1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px #4ade80' }} />
@@ -64,7 +73,6 @@ export default function Landing() {
                 </div>
               ))}
             </div>
-            {/* Contenido simulado */}
             <div style={{ flex: 1, padding: '1.5rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
                 {[['AGENTES ACTIVOS', '3'], ['CONVERSACIONES', '142'], ['MENSAJES HOY', '28']].map(([label, value]) => (
@@ -185,18 +193,38 @@ export default function Landing() {
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <div style={{ fontSize: 10, letterSpacing: '0.3em', color: '#444', textAlign: 'center', marginBottom: '0.75rem' }}>PRECIOS</div>
           <div style={{ fontSize: 32, fontWeight: 500, color: '#e8e4dc', textAlign: 'center', marginBottom: '0.75rem' }}>Simple y transparente</div>
-          <div style={{ fontSize: 13, color: '#444', textAlign: 'center', marginBottom: '3.5rem' }}>Sin permanencias · Cancela cuando quieras</div>
+          <div style={{ fontSize: 13, color: '#444', textAlign: 'center', marginBottom: '2rem' }}>Sin permanencias · Cancela cuando quieras</div>
+
+          {/* Toggle mensual/anual */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '3rem' }}>
+            <span style={{ fontSize: 11, color: !annual ? '#d4d0c8' : '#444', letterSpacing: '0.1em' }}>MENSUAL</span>
+            <button
+              onClick={() => setAnnual(!annual)}
+              style={{ width: 48, height: 26, borderRadius: 13, background: annual ? '#4ade80' : '#222', position: 'relative', cursor: 'pointer', border: 'none', outline: 'none', transition: 'background 0.2s' }}
+            >
+              <div style={{ position: 'absolute', top: 3, left: annual ? 25 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+            </button>
+            <span style={{ fontSize: 11, color: annual ? '#d4d0c8' : '#444', letterSpacing: '0.1em' }}>
+              ANUAL
+              <span style={{ marginLeft: '0.5rem', fontSize: 9, color: '#4ade80', background: '#0d2010', padding: '2px 6px', borderRadius: 2, border: '1px solid #1a4a1a' }}>-15%</span>
+            </span>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
             {[
-              { plan: 'BÁSICO', price: '29', desc: 'Para empezar', features: ['1 agente activo', '500 emails/mes', 'Gmail', 'Dashboard básico', 'Soporte por email'], highlighted: false },
-              { plan: 'PRO', price: '99', desc: 'El más popular', features: ['5 agentes activos', '5.000 emails/mes', 'Gmail + Slack', 'Dashboard completo', 'Estadísticas avanzadas', 'Soporte prioritario'], highlighted: true },
-              { plan: 'ENTERPRISE', price: '399', desc: 'Para grandes equipos', features: ['Agentes ilimitados', 'Emails ilimitados', 'Todas las integraciones', 'API propia', 'SLA garantizado', 'Soporte dedicado'], highlighted: false },
+              { plan: 'BÁSICO', price: prices.basic, originalPrice: 29, desc: 'Para empezar', features: ['1 agente activo', '500 emails/mes', 'Gmail', 'Dashboard básico', 'Soporte por email'], highlighted: false },
+              { plan: 'PRO', price: prices.pro, originalPrice: 99, desc: 'El más popular', features: ['5 agentes activos', '5.000 emails/mes', 'Gmail + Slack', 'Dashboard completo', 'Estadísticas avanzadas', 'Soporte prioritario'], highlighted: true },
+              { plan: 'ENTERPRISE', price: prices.enterprise, originalPrice: 399, desc: 'Para grandes equipos', features: ['Agentes ilimitados', 'Emails ilimitados', 'Todas las integraciones', 'API propia', 'SLA garantizado', 'Soporte dedicado'], highlighted: false },
             ].map(item => (
               <div key={item.plan} style={{ padding: '2rem', background: item.highlighted ? '#0d2010' : '#0f0f0f', border: `1px solid ${item.highlighted ? '#4ade80' : '#1a1a1a'}`, borderRadius: 4, position: 'relative' as any }}>
                 {item.highlighted && <div style={{ position: 'absolute' as any, top: -1, left: '50%', transform: 'translateX(-50%)', background: '#4ade80', color: '#080808', fontSize: 9, padding: '3px 12px', letterSpacing: '0.15em', borderRadius: '0 0 4px 4px' }}>MÁS POPULAR</div>}
                 <div style={{ fontSize: 9, color: '#4ade80', letterSpacing: '0.2em', marginBottom: '1rem' }}>{item.plan}</div>
-                <div style={{ fontSize: 42, color: '#d4d0c8', fontWeight: 500, marginBottom: '0.25rem' }}>{item.price}€</div>
-                <div style={{ fontSize: 11, color: '#444', marginBottom: '2rem' }}>/ mes · {item.desc}</div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                  <div style={{ fontSize: 42, color: '#d4d0c8', fontWeight: 500 }}>{item.price}€</div>
+                  {annual && <div style={{ fontSize: 14, color: '#333', textDecoration: 'line-through', marginBottom: '0.6rem' }}>{item.originalPrice}€</div>}
+                </div>
+                <div style={{ fontSize: 11, color: '#444', marginBottom: annual ? '0.5rem' : '2rem' }}>/ mes · {item.desc}</div>
+                {annual && <div style={{ fontSize: 10, color: '#4ade80', marginBottom: '1.5rem', letterSpacing: '0.05em' }}>Facturado anualmente ({item.price * 12}€/año)</div>}
                 {item.features.map(f => (
                   <div key={f} style={{ fontSize: 11, color: '#555', marginBottom: '0.6rem', display: 'flex', gap: '0.5rem' }}>
                     <span style={{ color: '#4ade80', flexShrink: 0 }}>✓</span> {f}
