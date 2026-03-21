@@ -3,7 +3,7 @@
   var agentId = config.agentId
   if (!agentId) return console.error('Axiora: agentId no configurado')
 
-  var apiUrl = config.apiUrl || 'https://axiora-murex.vercel.app'
+  var apiUrl = config.apiUrl || 'https://calm-smakager-26cab8.netlify.app'
   var sessionId = 'widget_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now()
 
   var styles = `
