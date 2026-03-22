@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get('token')?.value
   const path = request.nextUrl.pathname
-const isPublic = path === '/login' || path === '/register' || path === '/landing' || path === '/widget.js' || path.startsWith('/api/widget')
+const isPublic = path === '/login' || path === '/register' || path === '/landing' || path === '/widget.js' || path.startsWith('/api/widget') || path.startsWith('/api/calendar/callback')
   if (!token && path === '/') {
     return NextResponse.redirect(new URL('/landing', request.url))
   }
