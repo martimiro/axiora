@@ -131,7 +131,7 @@ export default function Dashboard() {
   const [gmailResult, setGmailResult] = useState<string | null>(null)
   const [autoReply, setAutoReply] = useState(false)
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
-  const [view, setView] = useState<'dashboard' | 'stats' | 'conversations' | 'agents' | 'new-agent' | 'edit-agent'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'stats' | 'conversations' | 'agents' | 'new-agent' | 'edit-agent' | 'calendar'>('dashboard')
   const [newAgent, setNewAgent] = useState({ name: '', description: '', prompt: '', type: 'support' })
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [creating, setCreating] = useState(false)
