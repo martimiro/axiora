@@ -9,6 +9,7 @@ type Stats = {
   totalAgents: number; totalConversations: number; totalMessages: number
   messagesToday: number; messagesThisWeek: number; autoReplies: number
   openConversations: number; agentStats: { id: string; name: string; conversations: number; messages: number }[]
+  sparklines?: { messages: number[]; conversations: number[]; labels: string[] }
 }
 type DashMessages = { dashboard: Record<string, string> }
 
@@ -118,6 +119,11 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+
+  useEffect(() => {
+    const interval = setInterval(() => { fetchStats(); fetchData() }, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Simulate real-time notifications when new messages arrive
   useEffect(() => {
@@ -241,7 +247,8 @@ export default function Dashboard() {
   const filteredConvs = allConvs.filter(c => filterStatus === 'all' ? true : c.status === filterStatus)
 
   // Sparkline data (last 7 days simulated from stats)
-  const sparkData = [0, 2, 1, 4, 3, (stats?.messagesToday || 0), (stats?.messagesThisWeek || 0) % 10]
+  const sparkData = stats?.sparklines?.messages || [0, 0, 0, 0, 0, 0, stats?.messagesToday || 0]
+  const sparkConvData = stats?.sparklines?.conversations || [0, 0, 0, 0, 0, 0, 0]
 
   const navItems = [
     { key: 'dashboard', label: t?.panel || 'Overview', icon: '⊞' },
@@ -425,7 +432,7 @@ export default function Dashboard() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
                 {[
                   { label: t?.activeAgents || 'Active agents', value: stats?.totalAgents ?? 0, sparkColor: '#7c3aed', delta: '+0%' },
-                  { label: t?.openConvs || 'Open conversations', value: stats?.openConversations ?? 0, sparkColor: '#3b82f6', delta: null },
+                  { label: t?.openConvs || 'Open conversations', value: stats?.openConversations ?? 0, sparkColor: '#3b82f6', delta: null, sparkOverride: sparkConvData },
                   { label: t?.messagesToday || 'Messages today', value: stats?.messagesToday ?? 0, sparkColor: '#10b981', delta: `${stats?.messagesThisWeek ?? 0} this week` },
                 ].map((item, i) => (
                   <div key={i} className="card-hover" style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
