@@ -18,6 +18,11 @@ const AGENT_TEMPLATES = {
   admin: { name: 'Admin Agent', description: 'Processes documents and updates databases', prompt: `You are an efficient administrative assistant. Your goal is to process administrative requests, extract information from documents and coordinate internal tasks. Be precise and methodical in your responses.` }
 }
 
+const sans = "'Inter', sans-serif"
+const mono = "'IBM Plex Mono', monospace"
+const accent = '#7c3aed'
+const accentLight = '#8b5cf6'
+
 export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -50,14 +55,14 @@ export default function Dashboard() {
   const t = m?.dashboard
 
   async function fetchData() {
-  const res = await fetch('/api/conversations')
-  if (!res.ok) return
-  const data = await res.json()
-  if (Array.isArray(data)) {
-    setAgents(data)
-    if (data.length > 0 && !activeAgentId) setActiveAgentId(data[0].id)
+    const res = await fetch('/api/conversations')
+    if (!res.ok) return
+    const data = await res.json()
+    if (Array.isArray(data)) {
+      setAgents(data)
+      if (data.length > 0 && !activeAgentId) setActiveAgentId(data[0].id)
+    }
   }
-}
 
   async function fetchStats() {
     const res = await fetch('/api/stats')
@@ -96,9 +101,7 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editingAgent.name, description: editingAgent.description, prompt: editingAgent.prompt })
       })
-      await fetchData()
-      setView('agents')
-      setEditingAgent(null)
+      await fetchData(); setView('agents'); setEditingAgent(null)
     } finally { setSaving(false) }
   }
 
@@ -152,315 +155,363 @@ export default function Dashboard() {
   const allConvs = (Array.isArray(agents) ? agents : []).flatMap(ag => ag.conversations.map(c => ({ ...c, agentName: ag.name, agentId: ag.id })))
   const filteredConvs = allConvs.filter(c => filterStatus === 'all' ? true : c.status === filterStatus)
 
-  const s = {
-    app: { display: 'flex', minHeight: '100vh', background: '#080808', color: '#d4d0c8', fontFamily: "'IBM Plex Mono', monospace", fontSize: 13 } as any,
-    sidebar: { width: 220, borderRight: '1px solid #1a1a1a', display: 'flex', flexDirection: 'column', padding: '1.5rem 0' } as any,
-    logo: { padding: '0 1.5rem 2rem', display: 'flex', alignItems: 'center', gap: 8 } as any,
-    dot: { width: 7, height: 7, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px #4ade80' } as any,
-    logoText: { fontSize: 12, letterSpacing: '0.2em', color: '#888' } as any,
-    navItem: (active: boolean) => ({ padding: '0.6rem 1.5rem', cursor: 'pointer', color: active ? '#d4d0c8' : '#444', borderLeft: active ? '2px solid #d4d0c8' : '2px solid transparent', fontSize: 11, letterSpacing: '0.12em', transition: 'all 0.15s' }) as any,
-    main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } as any,
-    topbar: { borderBottom: '1px solid #1a1a1a', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } as any,
-    pageTitle: { fontSize: 11, letterSpacing: '0.2em', color: '#555' } as any,
-    content: { flex: 1, overflow: 'auto', padding: '2rem' } as any,
-    grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' } as any,
-    grid4: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' } as any,
-    card: { background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '1.25rem 1.5rem' } as any,
-    cardLabel: { fontSize: 10, letterSpacing: '0.18em', color: '#444', marginBottom: '0.5rem' } as any,
-    cardValue: { fontSize: 28, fontWeight: 500, color: '#d4d0c8' } as any,
-    cardSub: { fontSize: 10, color: '#2a2a2a', marginTop: '0.25rem' } as any,
-    section: { marginBottom: '2rem' } as any,
-    sectionTitle: { fontSize: 10, letterSpacing: '0.18em', color: '#444', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid #111' } as any,
-    convRow: (active: boolean) => ({ padding: '0.75rem 1rem', border: '1px solid #1a1a1a', borderRadius: 4, marginBottom: '0.5rem', cursor: 'pointer', background: active ? '#141414' : '#0f0f0f', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }) as any,
-    badge: (status: string) => ({ fontSize: 9, letterSpacing: '0.12em', padding: '2px 6px', borderRadius: 2, background: status === 'open' ? '#0d2010' : '#1a1a1a', color: status === 'open' ? '#4ade80' : '#444' }) as any,
-    chatWrap: { display: 'flex', gap: '2rem', height: 'calc(100vh - 130px)' } as any,
-    convList: { width: 300, borderRight: '1px solid #1a1a1a', overflowY: 'auto', paddingRight: '1rem' } as any,
-    chatArea: { flex: 1, display: 'flex', flexDirection: 'column' } as any,
-    msgArea: { flex: 1, overflowY: 'auto', paddingBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' } as any,
-    inputRow: { borderTop: '1px solid #1a1a1a', paddingTop: '1rem', display: 'flex', gap: '0.75rem' } as any,
-    input: { flex: 1, background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none' } as any,
-    textarea: { width: '100%', background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none', resize: 'vertical' as any, minHeight: 120, boxSizing: 'border-box' as any } as any,
-    fieldInput: { width: '100%', background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', color: '#d4d0c8', fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", outline: 'none', boxSizing: 'border-box' as any } as any,
-    label: { fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.4rem', display: 'block' } as any,
-    btn: (disabled: boolean) => ({ background: disabled ? '#1a1a1a' : '#d4d0c8', color: '#080808', border: 'none', borderRadius: 4, padding: '0.6rem 1.25rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: disabled ? 'not-allowed' : 'pointer' }) as any,
-    btnGreen: { background: '#4ade80', color: '#080808', border: 'none', borderRadius: 4, padding: '0.6rem 1.25rem', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' } as any,
-    btnDanger: { background: 'transparent', color: '#444', border: '1px solid #222', borderRadius: 4, padding: '0.4rem 0.875rem', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' } as any,
-    btnOutline: { background: 'transparent', color: '#888', border: '1px solid #222', borderRadius: 4, padding: '0.4rem 0.875rem', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' } as any,
-    toggle: (active: boolean) => ({ width: 40, height: 22, borderRadius: 11, background: active ? '#4ade80' : '#222', position: 'relative' as any, cursor: 'pointer', transition: 'background 0.2s', border: 'none', outline: 'none' }) as any,
-    toggleDot: (active: boolean) => ({ position: 'absolute' as any, top: 3, left: active ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }) as any,
-    templateBtn: (active: boolean) => ({ padding: '0.5rem 1rem', border: `1px solid ${active ? '#4ade80' : '#222'}`, borderRadius: 4, background: active ? '#0d2010' : '#0f0f0f', color: active ? '#4ade80' : '#444', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' }) as any,
-    filterBtn: (active: boolean) => ({ padding: '0.4rem 0.875rem', border: `1px solid ${active ? '#d4d0c8' : '#222'}`, borderRadius: 4, background: 'transparent', color: active ? '#d4d0c8' : '#444', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer' }) as any,
-  }
-
   const navItems = [
-    { key: 'dashboard', label: t?.panel || 'PANEL' },
-    { key: 'stats', label: t?.stats || 'ESTADÍSTIQUES' },
-    { key: 'conversations', label: t?.conversations || 'CONVERSES' },
-    { key: 'agents', label: t?.agents || 'AGENTS' },
+    { key: 'dashboard', label: t?.panel || 'Panel', icon: '▦' },
+    { key: 'stats', label: t?.stats || 'Estadístiques', icon: '↗' },
+    { key: 'conversations', label: t?.conversations || 'Converses', icon: '◌' },
+    { key: 'agents', label: t?.agents || 'Agents', icon: '⬡' },
   ]
 
   const pageTitle: Record<string, string> = {
-    dashboard: t?.panelTitle || 'PANELL DE CONTROL',
-    stats: t?.statsTitle || 'ESTADÍSTIQUES',
-    conversations: t?.conversationsTitle || 'CONVERSES',
-    agents: t?.agentsTitle || 'AGENTS',
-    'new-agent': t?.newAgentTitle || 'NOU AGENT',
-    'edit-agent': t?.editAgentTitle || 'EDITAR AGENT',
+    dashboard: t?.panelTitle || 'Panel de control',
+    stats: t?.statsTitle || 'Estadístiques',
+    conversations: t?.conversationsTitle || 'Converses',
+    agents: t?.agentsTitle || 'Agents',
+    'new-agent': t?.newAgentTitle || 'Nou agent',
+    'edit-agent': t?.editAgentTitle || 'Editar agent',
   }
 
+  const isActive = (key: string) => view === key || (view === 'new-agent' && key === 'agents') || (view === 'edit-agent' && key === 'agents')
+
+  // Styles
+  const card: any = { background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 12, padding: '1.5rem' }
+  const inputStyle: any = { width: '100%', background: '#080808', border: '1px solid #1a1a1a', borderRadius: 8, padding: '0.7rem 1rem', color: '#e8e4dc', fontSize: 14, fontFamily: sans, outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' }
+  const textareaStyle: any = { ...inputStyle, resize: 'vertical', minHeight: 140, lineHeight: 1.6 }
+  const labelStyle: any = { fontSize: 12, color: '#555', marginBottom: '0.5rem', display: 'block', fontWeight: 500 }
+  const btnPrimary: any = { background: accent, color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontSize: 14, fontFamily: sans, fontWeight: 600, cursor: 'pointer', transition: 'opacity .15s, transform .15s' }
+  const btnSecondary: any = { background: 'transparent', color: '#666', border: '1px solid #222', borderRadius: 8, padding: '0.7rem 1.5rem', fontSize: 14, fontFamily: sans, cursor: 'pointer', transition: 'border-color .2s, color .2s' }
+  const btnOutline: any = { background: 'transparent', color: '#555', border: '1px solid #1a1a1a', borderRadius: 6, padding: '0.4rem 0.875rem', fontSize: 12, fontFamily: sans, cursor: 'pointer', transition: 'all .15s' }
+  const btnDanger: any = { ...btnOutline, color: '#ef4444', borderColor: '#ef444422' }
+  const badge = (status: string): any => ({ fontSize: 10, letterSpacing: '0.08em', padding: '3px 8px', borderRadius: 6, background: status === 'open' ? '#7c3aed18' : '#1a1a1a', color: status === 'open' ? accentLight : '#444', border: `1px solid ${status === 'open' ? '#7c3aed33' : '#222'}`, fontFamily: mono })
+
   return (
-    <div style={s.app}>
-      <aside style={s.sidebar}>
-        <div style={s.logo}>
-          <div style={s.dot} className="dot-pulse" />
-          <span style={s.logoText}>AXIORA</span>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#050505', color: '#e8e4dc', fontFamily: sans }}>
+
+      <style>{`
+        @keyframes pulse-accent { 0%,100%{box-shadow:0 0 6px #7c3aed}50%{box-shadow:0 0 16px #7c3aed} }
+        @keyframes fadeSlideIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+        .view-enter{animation:fadeSlideIn 0.25s ease forwards}
+        .blink{animation:blink 1s infinite}
+        .nav-item:hover{background:#0f0f0f!important;color:#e8e4dc!important}
+        .card-hover{transition:border-color .2s,transform .2s,box-shadow .2s}
+        .card-hover:hover{border-color:#2a2a2a!important;transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+        .conv-row{transition:background .15s,border-color .15s}
+        .conv-row:hover{background:#0f0f0f!important;border-color:#222!important}
+        .btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+        .btn-secondary:hover{border-color:#333!important;color:#e8e4dc!important}
+        .btn-outline:hover{border-color:#333!important;color:#e8e4dc!important}
+        input:focus,textarea:focus{border-color:#7c3aed!important;box-shadow:0 0 0 3px #7c3aed18}
+        .template-btn:hover{border-color:#7c3aed!important;color:#8b5cf6!important}
+        .filter-btn:hover{border-color:#333!important;color:#e8e4dc!important}
+        .toggle-btn{transition:background .25s}
+        .stat-card{animation:fadeSlideIn .4s ease forwards;opacity:0}
+        .stat-card:nth-child(2){animation-delay:.07s}
+        .stat-card:nth-child(3){animation-delay:.14s}
+        .stat-card:nth-child(4){animation-delay:.21s}
+      `}</style>
+
+      {/* Sidebar */}
+      <aside style={{ width: 240, borderRight: '1px solid #111', display: 'flex', flexDirection: 'column', padding: '1.5rem 0', background: '#070707', flexShrink: 0 }}>
+        <div style={{ padding: '0 1.5rem 2rem', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: accent, animation: 'pulse-accent 2s infinite' }} />
+          <span style={{ fontSize: 15, letterSpacing: '0.12em', color: '#e8e4dc', fontWeight: 700, fontFamily: mono }}>AXIORA</span>
         </div>
-        {navItems.map(item => (
-          <div key={item.key} style={s.navItem(view === item.key || (view === 'new-agent' && item.key === 'agents') || (view === 'edit-agent' && item.key === 'agents'))} onClick={() => setView(item.key as any)}>
-            {item.label}
-          </div>
-        ))}
-        <div style={{ marginTop: 'auto', padding: '0 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+        <nav style={{ flex: 1 }}>
+          {navItems.map(item => (
+            <div
+              key={item.key}
+              className="nav-item"
+              onClick={() => setView(item.key as any)}
+              style={{
+                padding: '0.7rem 1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                color: isActive(item.key) ? '#e8e4dc' : '#444',
+                background: isActive(item.key) ? '#0f0f0f' : 'transparent',
+                borderLeft: isActive(item.key) ? `2px solid ${accent}` : '2px solid transparent',
+                fontSize: 14, fontWeight: isActive(item.key) ? 500 : 400,
+                transition: 'all .15s', marginBottom: 2,
+              }}
+            >
+              <span style={{ fontSize: 12, opacity: 0.6 }}>{item.icon}</span>
+              {item.label}
+            </div>
+          ))}
+        </nav>
+
+        <div style={{ padding: '0 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
           <LocaleSwitcher />
-          <button style={{ background: 'transparent', border: 'none', color: '#2a2a2a', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', cursor: 'pointer', padding: 0, textAlign: 'left' }} onClick={() => { document.cookie = 'token=; Max-Age=0; path=/'; window.location.href = '/login' }}>
-            {t?.logout || 'TANCAR SESSIÓ'}
+          <button
+            style={{ background: 'transparent', border: 'none', color: '#333', fontSize: 12, fontFamily: sans, cursor: 'pointer', padding: 0, textAlign: 'left', transition: 'color .15s' }}
+            onClick={() => { document.cookie = 'token=; Max-Age=0; path=/'; window.location.href = '/login' }}
+          >
+            {t?.logout || 'Tancar sessió'}
           </button>
-          <div style={{ fontSize: 9, color: '#1a1a1a', letterSpacing: '0.1em' }}>v0.1.0-alpha</div>
+          <div style={{ fontSize: 10, color: '#1a1a1a', fontFamily: mono }}>v0.1.0-alpha</div>
         </div>
       </aside>
 
-      <main style={s.main}>
-        <div style={s.topbar}>
-          <span style={s.pageTitle}>{pageTitle[view]}</span>
-          <span style={{ fontSize: 10, color: '#2a2a2a' }}>{new Date().toLocaleDateString('ca', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</span>
+      {/* Main */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Topbar */}
+        <div style={{ borderBottom: '1px solid #111', padding: '1.1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#070707' }}>
+          <span style={{ fontSize: 18, fontWeight: 600, color: '#e8e4dc', letterSpacing: '-0.01em' }}>{pageTitle[view]}</span>
+          <span style={{ fontSize: 12, color: '#333', fontFamily: mono }}>{new Date().toLocaleDateString('ca', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</span>
         </div>
 
-<div style={s.content} key={view} className="view-enter">
+        {/* Content */}
+        <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }} key={view} className="view-enter">
+
+          {/* DASHBOARD */}
           {view === 'dashboard' && (
             <>
-              <div style={s.grid}>
-                <div style={s.card}>
-                  <div style={s.cardLabel}>{t?.activeAgents || 'AGENTS ACTIUS'}</div>
-                  <div style={s.cardValue}>{stats?.totalAgents ?? 0}</div>
-                </div>
-                <div style={s.card}>
-                  <div style={s.cardLabel}>{t?.openConvs || 'CONV. OBERTES'}</div>
-                  <div style={s.cardValue}>{stats?.openConversations ?? 0}</div>
-                </div>
-                <div style={s.card}>
-                  <div style={s.cardLabel}>{t?.messagesToday || 'MISSATGES AVUI'}</div>
-                  <div style={s.cardValue}>{stats?.messagesToday ?? 0}</div>
-                  <div style={s.cardSub}>{stats?.messagesThisWeek ?? 0} {t?.thisWeek || 'aquesta setmana'}</div>
-                </div>
-              </div>
-              <div style={s.section}>
-                <div style={s.sectionTitle}>{t?.recentActivity || 'ACTIVITAT RECENT'}</div>
-                {allConvs.filter(c => c.status === 'open').slice(0, 5).map(c => (
-                  <div key={c.id} style={s.convRow(false)} className="card-transition" onClick={() => { setView('conversations'); setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}>
-                    <div>
-                      <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{(c as any).agentName}</div>
-                      <div style={{ color: '#555', fontSize: 11 }}>{c.messages[0]?.content?.slice(0, 60) || '...'}...</div>
-                    </div>
-                    <span style={s.badge(c.status)}>{c.status.toUpperCase()}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                {[
+                  { label: t?.activeAgents || 'Agents actius', value: stats?.totalAgents ?? 0, sub: null },
+                  { label: t?.openConvs || 'Conv. obertes', value: stats?.openConversations ?? 0, sub: null },
+                  { label: t?.messagesToday || 'Missatges avui', value: stats?.messagesToday ?? 0, sub: `${stats?.messagesThisWeek ?? 0} ${t?.thisWeek || 'aquesta setmana'}` },
+                ].map((item, i) => (
+                  <div key={i} className="card-hover" style={{ ...card }}>
+                    <div style={{ fontSize: 12, color: '#555', marginBottom: '0.75rem', fontWeight: 500 }}>{item.label}</div>
+                    <div style={{ fontSize: 36, fontWeight: 700, color: '#e8e4dc', letterSpacing: '-0.02em' }}>{item.value}</div>
+                    {item.sub && <div style={{ fontSize: 12, color: '#333', marginTop: '0.3rem' }}>{item.sub}</div>}
                   </div>
                 ))}
-                {(stats?.openConversations ?? 0) === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>{t?.noOpenConvs || 'Sense converses obertes'}</div>}
+              </div>
+              <div style={{ ...card }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #111' }}>{t?.recentActivity || 'Activitat recent'}</div>
+                {allConvs.filter(c => c.status === 'open').slice(0, 5).map(c => (
+                  <div key={c.id} className="conv-row" onClick={() => { setView('conversations'); setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}
+                    style={{ padding: '0.875rem 1rem', border: '1px solid #111', borderRadius: 8, marginBottom: '0.5rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: '#666', marginBottom: 3, fontWeight: 500 }}>{(c as any).agentName}</div>
+                      <div style={{ fontSize: 13, color: '#444' }}>{c.messages[0]?.content?.slice(0, 70) || '...'}...</div>
+                    </div>
+                    <span style={badge(c.status)}>{c.status.toUpperCase()}</span>
+                  </div>
+                ))}
+                {(stats?.openConversations ?? 0) === 0 && <div style={{ fontSize: 13, color: '#333', textAlign: 'center', padding: '2rem 0' }}>{t?.noOpenConvs || 'Sense converses obertes'}</div>}
               </div>
             </>
           )}
 
+          {/* STATS */}
           {view === 'stats' && stats && (
             <>
-              <div style={s.grid4}>
-                <div style={s.card} className="stat-card"><div style={s.cardLabel}>{t?.messagesToday || 'MISSATGES AVUI'}</div><div style={s.cardValue}>{stats.messagesToday}</div></div>
-                <div style={s.card} className="stat-card"><div style={s.cardLabel}>{t?.thisWeek || 'AQUESTA SETMANA'}</div><div style={s.cardValue}>{stats.messagesThisWeek}</div></div>
-                <div style={s.card} className="stat-card"><div style={s.cardLabel}>{t?.aiReplies || 'RESPOSTES IA'}</div><div style={s.cardValue}>{stats.autoReplies}</div></div>
-                <div style={s.card} className="stat-card"><div style={s.cardLabel}>{t?.openConvs || 'CONV. OBERTES'}</div><div style={s.cardValue}>{stats.openConversations}</div></div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                {[
+                  { label: t?.messagesToday || 'Missatges avui', value: stats.messagesToday },
+                  { label: t?.thisWeek || 'Aquesta setmana', value: stats.messagesThisWeek },
+                  { label: t?.aiReplies || 'Respostes IA', value: stats.autoReplies },
+                  { label: t?.openConvs || 'Conv. obertes', value: stats.openConversations },
+                ].map((item, i) => (
+                  <div key={i} className="stat-card card-hover" style={{ ...card }}>
+                    <div style={{ fontSize: 12, color: '#555', marginBottom: '0.75rem', fontWeight: 500 }}>{item.label}</div>
+                    <div style={{ fontSize: 36, fontWeight: 700, color: '#e8e4dc', letterSpacing: '-0.02em' }}>{item.value}</div>
+                  </div>
+                ))}
               </div>
-              <div style={s.section}>
-                <div style={s.sectionTitle}>{t?.performanceByAgent || 'RENDIMENT PER AGENT'}</div>
+              <div style={{ ...card }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #111' }}>{t?.performanceByAgent || 'Rendiment per agent'}</div>
                 {stats.agentStats.map(ag => (
-                  <div key={ag.id} style={{ ...s.card, marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={ag.id} className="card-hover" style={{ ...card, marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: 12, color: '#d4d0c8', marginBottom: 4 }}>{ag.name}</div>
-                      <div style={{ fontSize: 10, color: '#444' }}>{ag.conversations} {t?.conversations2 || 'converses'} · {ag.messages} {t?.messages || 'missatges'}</div>
+                      <div style={{ fontSize: 14, color: '#e8e4dc', marginBottom: 4, fontWeight: 500 }}>{ag.name}</div>
+                      <div style={{ fontSize: 12, color: '#555' }}>{ag.conversations} {t?.conversations2 || 'converses'} · {ag.messages} {t?.messages || 'missatges'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 20, fontWeight: 500, color: '#4ade80' }}>{ag.messages}</div>
-                      <div style={{ fontSize: 9, color: '#444', letterSpacing: '0.1em' }}>{t?.messages?.toUpperCase() || 'MISSATGES'}</div>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: accentLight, letterSpacing: '-0.02em' }}>{ag.messages}</div>
+                      <div style={{ fontSize: 10, color: '#444', fontFamily: mono }}>MISSATGES</div>
                     </div>
                   </div>
                 ))}
-                {stats.agentStats.length === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>{t?.noData || 'Sense dades encara'}</div>}
+                {stats.agentStats.length === 0 && <div style={{ fontSize: 13, color: '#333', textAlign: 'center', padding: '2rem 0' }}>{t?.noData || 'Sense dades encara'}</div>}
               </div>
             </>
           )}
 
+          {/* CONVERSATIONS */}
           {view === 'conversations' && (
-            <div style={s.chatWrap}>
-              <div style={s.convList}>
-                <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1.5rem', height: 'calc(100vh - 130px)' }}>
+              <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
                   {(['all', 'open', 'resolved'] as const).map(f => (
-                    <button key={f} style={s.filterBtn(filterStatus === f)} onClick={() => setFilterStatus(f)}>
+                    <button key={f} className="filter-btn" onClick={() => setFilterStatus(f)}
+                      style={{ flex: 1, padding: '0.5rem', border: `1px solid ${filterStatus === f ? accent : '#1a1a1a'}`, borderRadius: 6, background: filterStatus === f ? '#7c3aed14' : 'transparent', color: filterStatus === f ? accentLight : '#444', fontSize: 11, fontFamily: mono, cursor: 'pointer', transition: 'all .15s' }}>
                       {f === 'all' ? (t?.allConvs || 'TOTES') : f === 'open' ? (t?.openConvsFilter || 'OBERTES') : (t?.resolvedConvs || 'RESOLTES')}
                     </button>
                   ))}
                 </div>
                 {filteredConvs.map(c => (
-                  <div key={c.id} style={s.convRow(activeConv?.id === c.id)} className="card-transition" onClick={() => { setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}>
+                  <div key={c.id} className="conv-row" onClick={() => { setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}
+                    style={{ padding: '0.875rem 1rem', border: `1px solid ${activeConv?.id === c.id ? '#7c3aed44' : '#111'}`, borderRadius: 10, cursor: 'pointer', background: activeConv?.id === c.id ? '#7c3aed0a' : '#0a0a0a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: 10, color: '#555', marginBottom: 2 }}>{(c as any).agentName}</div>
-                      <div style={{ fontSize: 10, color: '#333' }}>#{c.id.slice(-6).toUpperCase()}</div>
+                      <div style={{ fontSize: 12, color: '#666', marginBottom: 3, fontWeight: 500 }}>{(c as any).agentName}</div>
+                      <div style={{ fontSize: 11, color: '#333', fontFamily: mono }}>#{c.id.slice(-6).toUpperCase()}</div>
                     </div>
-                    <span style={s.badge(c.status)}>{c.status === 'open' ? (t?.open || 'OBERTA') : (t?.resolved || 'RESOLTA')}</span>
+                    <span style={badge(c.status)}>{c.status === 'open' ? (t?.open || 'OBERTA') : (t?.resolved || 'RESOLTA')}</span>
                   </div>
                 ))}
-                {filteredConvs.length === 0 && <div style={{ color: '#2a2a2a', fontSize: 11 }}>{t?.noConversations || 'Sense converses'}</div>}
+                {filteredConvs.length === 0 && <div style={{ fontSize: 13, color: '#333', textAlign: 'center', padding: '2rem 0' }}>{t?.noConversations || 'Sense converses'}</div>}
               </div>
-              <div style={s.chatArea}>
+
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', ...card }}>
                 {activeConv ? (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #111' }}>
-                      <div>
-                        <span style={{ fontSize: 10, color: '#444', letterSpacing: '0.1em' }}>CONV #{activeConv.id.slice(-6).toUpperCase()}</span>
-                        <span style={{ ...s.badge(activeConv.status), marginLeft: '0.75rem' }}>{activeConv.status === 'open' ? (t?.open || 'OBERTA') : (t?.resolved || 'RESOLTA')}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: 13, color: '#666', fontFamily: mono }}>#{activeConv.id.slice(-6).toUpperCase()}</span>
+                        <span style={badge(activeConv.status)}>{activeConv.status === 'open' ? (t?.open || 'OBERTA') : (t?.resolved || 'RESOLTA')}</span>
                       </div>
                       {activeConv.status === 'open' ? (
-                        <button style={s.btnOutline} onClick={() => closeConversation(activeConv.id)}>{t?.markResolved || 'MARCAR RESOLTA'}</button>
+                        <button style={btnOutline} className="btn-outline" onClick={() => closeConversation(activeConv.id)}>{t?.markResolved || 'Marcar resolta'}</button>
                       ) : (
-                        <button style={s.btnOutline} onClick={() => reopenConversation(activeConv.id)}>{t?.reopen || 'REOBRIR'}</button>
+                        <button style={btnOutline} className="btn-outline" onClick={() => reopenConversation(activeConv.id)}>{t?.reopen || 'Reobrir'}</button>
                       )}
                     </div>
-                    <div style={s.msgArea}>
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '1rem' }}>
                       {messages.map((msg, i) => (
-                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: 3 }}>
-                          <span style={{ fontSize: 9, color: '#333', letterSpacing: '0.12em' }}>{msg.role === 'user' ? (t?.client || 'CLIENT') : (t?.agent || 'AGENT')}</span>
-                          <div style={{ background: msg.role === 'user' ? '#141414' : '#0f0f0f', border: `1px solid ${msg.role === 'user' ? '#222' : '#1a1a1a'}`, borderRadius: 4, padding: '0.6rem 0.875rem', maxWidth: '70%', fontSize: 12, lineHeight: 1.6 }}>
+                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: 4 }}>
+                          <span style={{ fontSize: 11, color: '#333', fontFamily: mono }}>{msg.role === 'user' ? (t?.client || 'CLIENT') : (t?.agent || 'AGENT')}</span>
+                          <div style={{ background: msg.role === 'user' ? '#0f0f0f' : '#7c3aed0a', border: `1px solid ${msg.role === 'user' ? '#1a1a1a' : '#7c3aed22'}`, borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px', padding: '0.75rem 1rem', maxWidth: '72%', fontSize: 14, lineHeight: 1.6, color: '#e0dcd4' }}>
                             {msg.content}
                           </div>
                         </div>
                       ))}
                       {loading && (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-                          <span style={{ fontSize: 9, color: '#333', letterSpacing: '0.12em' }}>{t?.agent || 'AGENT'}</span>
-                          <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 4, padding: '0.6rem 0.875rem', fontSize: 12, color: '#444' }}><span>{t?.processing ? t.processing.slice(0,-1) : 'processant'}<span className='blink'>_</span></span></div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                          <span style={{ fontSize: 11, color: '#333', fontFamily: mono }}>{t?.agent || 'AGENT'}</span>
+                          <div style={{ background: '#7c3aed0a', border: '1px solid #7c3aed22', borderRadius: '12px 12px 12px 4px', padding: '0.75rem 1rem', fontSize: 14, color: '#555' }}>
+                            <span>{t?.processing ? t.processing.slice(0, -1) : 'processant'}<span className="blink">_</span></span>
+                          </div>
                         </div>
                       )}
                       <div ref={bottomRef} />
                     </div>
                     {activeConv.status === 'open' && (
-                      <div style={s.inputRow}>
-                        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder={t?.replyPlaceholder || 'Respondre manualment...'} style={s.input} />
-                        <button onClick={sendMessage} disabled={loading} style={s.btn(loading)}>{t?.send || 'ENVIAR'}</button>
+                      <div style={{ borderTop: '1px solid #111', paddingTop: '1rem', display: 'flex', gap: '0.75rem' }}>
+                        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder={t?.replyPlaceholder || 'Respondre manualment...'} style={{ ...inputStyle, flex: 1 }} />
+                        <button onClick={sendMessage} disabled={loading} className="btn-primary" style={{ ...btnPrimary, opacity: loading ? 0.5 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>{t?.send || 'Enviar'}</button>
                       </div>
                     )}
                   </>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#2a2a2a', fontSize: 11, letterSpacing: '0.15em' }}>
-                    {t?.selectConversation || 'SELECCIONA UNA CONVERSA'}
-                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#2a2a2a', fontSize: 14, fontFamily: mono }}>{t?.selectConversation || 'SELECCIONA UNA CONVERSA'}</div>
                 )}
               </div>
             </div>
           )}
 
+          {/* AGENTS */}
           {view === 'agents' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <div style={s.sectionTitle}>{t?.configuredAgents || 'AGENTS CONFIGURATS'}</div>
-                <button style={s.btnGreen} onClick={() => setView('new-agent')}>{t?.newAgent || '+ NOU AGENT'}</button>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#888' }}>{t?.configuredAgents || 'Agents configurats'}</div>
+                <button className="btn-primary" style={btnPrimary} onClick={() => setView('new-agent')}>{t?.newAgent || '+ Nou agent'}</button>
               </div>
               {agents.map(ag => (
-                <div key={ag.id} style={{ ...s.card, marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div key={ag.id} className="card-hover" style={{ ...card, marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, color: '#d4d0c8', marginBottom: 4 }}>{ag.name}</div>
-                      <div style={{ fontSize: 11, color: '#444', marginBottom: '0.75rem' }}>{ag.description}</div>
-                      <div style={{ fontSize: 10, color: '#1a1a1a', fontFamily: 'monospace' }}>ID: {ag.id}</div>
+                      <div style={{ fontSize: 16, color: '#e8e4dc', marginBottom: 6, fontWeight: 600 }}>{ag.name}</div>
+                      <div style={{ fontSize: 13, color: '#555', marginBottom: '0.5rem' }}>{ag.description}</div>
+                      <div style={{ fontSize: 11, color: '#222', fontFamily: mono }}>ID: {ag.id}</div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' as any, alignItems: 'flex-end', gap: 8 }}>
-                      <span style={s.badge('open')}>{t?.active || 'ACTIU'}</span>
-                      <div style={{ fontSize: 10, color: '#444' }}>{ag.conversations.length} {t?.conversations2 || 'converses'}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+                      <span style={badge('open')}>{t?.active || 'ACTIU'}</span>
+                      <div style={{ fontSize: 12, color: '#444' }}>{ag.conversations.length} {t?.conversations2 || 'converses'}</div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button style={s.btnOutline} onClick={() => { setEditingAgent(ag); setView('edit-agent') }}>{t?.edit || 'EDITAR'}</button>
-                        <button style={s.btnDanger} onClick={() => deleteAgent(ag.id)}>{t?.delete || 'ELIMINAR'}</button>
+                        <button className="btn-outline" style={btnOutline} onClick={() => { setEditingAgent(ag); setView('edit-agent') }}>{t?.edit || 'Editar'}</button>
+                        <button style={btnDanger} onClick={() => deleteAgent(ag.id)}>{t?.delete || 'Eliminar'}</button>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ borderTop: '1px solid #1a1a1a', marginTop: '1rem', paddingTop: '1rem' }}>
-                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '1rem' }}>{t?.gmailIntegration || 'INTEGRACIÓ GMAIL'}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#111', borderRadius: 4, border: '1px solid #1a1a1a' }}>
+                  <div style={{ borderTop: '1px solid #111', paddingTop: '1.25rem', marginBottom: '1.25rem' }}>
+                    <div style={{ fontSize: 12, color: '#444', marginBottom: '1rem', fontWeight: 500, fontFamily: mono, letterSpacing: '0.08em' }}>{t?.gmailIntegration || 'INTEGRACIÓ GMAIL'}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', padding: '1rem', background: '#080808', borderRadius: 8, border: '1px solid #111' }}>
                       <div>
-                        <div style={{ fontSize: 12, color: '#d4d0c8', marginBottom: 2 }}>{t?.autoReply || 'Resposta automàtica'}</div>
-                        <div style={{ fontSize: 10, color: '#444' }}>{autoReply ? (t?.autoReplyOn || "L'agent respon emails automàticament") : (t?.autoReplyOff || "L'agent llegeix però no respon")}</div>
+                        <div style={{ fontSize: 14, color: '#e8e4dc', marginBottom: 4, fontWeight: 500 }}>{t?.autoReply || 'Resposta automàtica'}</div>
+                        <div style={{ fontSize: 12, color: '#555' }}>{autoReply ? (t?.autoReplyOn || "L'agent respon emails automàticament") : (t?.autoReplyOff || "L'agent llegeix però no respon")}</div>
                       </div>
-                      <button style={s.toggle(autoReply)} onClick={toggleAutoReply}>
-                        <div style={s.toggleDot(autoReply)} />
+                      <button className="toggle-btn" onClick={toggleAutoReply} style={{ width: 44, height: 24, borderRadius: 12, background: autoReply ? accent : '#222', position: 'relative', cursor: 'pointer', border: 'none', outline: 'none' }}>
+                        <div style={{ position: 'absolute', top: 3, left: autoReply ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .25s' }} />
                       </button>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as any }}>
-                      <a href="/api/gmail/auth" style={s.btnGreen}>{t?.connectGmail || 'CONNECTAR GMAIL'}</a>
-                      <button onClick={() => processEmails(ag.id)} disabled={processing} style={s.btn(processing)}>
-                        {processing ? (t?.processing2 || 'PROCESSANT...') : (t?.processEmails || 'PROCESSAR EMAILS')}
+                      <a href="/api/gmail/auth" className="btn-primary" style={{ ...btnPrimary, textDecoration: 'none', fontSize: 13 }}>{t?.connectGmail || 'Connectar Gmail'}</a>
+                      <button onClick={() => processEmails(ag.id)} disabled={processing} className="btn-secondary" style={{ ...btnSecondary, opacity: processing ? 0.5 : 1 }}>
+                        {processing ? (t?.processing2 || 'Processant...') : (t?.processEmails || 'Processar emails')}
                       </button>
                     </div>
-                    {gmailResult && <div style={{ marginTop: '0.75rem', fontSize: 11, color: gmailResult.startsWith('Error') ? '#ef4444' : '#4ade80' }}>{gmailResult}</div>}
+                    {gmailResult && <div style={{ marginTop: '0.75rem', fontSize: 13, color: gmailResult.startsWith('Error') ? '#ef4444' : accentLight }}>{gmailResult}</div>}
                   </div>
 
-                  <div style={{ borderTop: '1px solid #1a1a1a', marginTop: '1rem', paddingTop: '1rem' }}>
-                    <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#444', marginBottom: '0.75rem' }}>{t?.widgetTitle || 'WIDGET EMBEBIBLE'}</div>
-                    <div style={{ fontSize: 11, color: '#555', marginBottom: '0.75rem' }}>{t?.widgetDesc || 'Enganxa aquest codi al teu web per afegir el xat:'}</div>
-                    <div style={{ background: '#080808', border: '1px solid #111', borderRadius: 4, padding: '0.875rem', fontSize: 10, color: '#4ade80', fontFamily: 'monospace', lineHeight: 1.8, whiteSpace: 'pre' as any, overflowX: 'auto' as any }}>
+                  <div style={{ borderTop: '1px solid #111', paddingTop: '1.25rem' }}>
+                    <div style={{ fontSize: 12, color: '#444', marginBottom: '0.5rem', fontWeight: 500, fontFamily: mono, letterSpacing: '0.08em' }}>{t?.widgetTitle || 'WIDGET'}</div>
+                    <div style={{ fontSize: 13, color: '#555', marginBottom: '0.75rem' }}>{t?.widgetDesc || 'Enganxa aquest codi al teu web:'}</div>
+                    <div style={{ background: '#080808', border: '1px solid #111', borderRadius: 8, padding: '1rem', fontSize: 11, color: accentLight, fontFamily: mono, lineHeight: 1.8, whiteSpace: 'pre' as any, overflowX: 'auto' as any }}>
                       {`<script>\n  window.AxioraConfig = {\n    agentId: '${ag.id}',\n    apiUrl: 'https://calm-smakager-26cab8.netlify.app'\n  }\n</script>\n<script src="https://calm-smakager-26cab8.netlify.app/widget.js"></script>`}
                     </div>
-                    <button onClick={() => copyWidgetCode(ag.id)} style={{ ...s.btnOutline, marginTop: '0.5rem', fontSize: 10 }}>
-                      {copiedId === ag.id ? (t?.copied || 'COPIAT') : (t?.copyCode || 'COPIAR CODI')}
+                    <button onClick={() => copyWidgetCode(ag.id)} className="btn-outline" style={{ ...btnOutline, marginTop: '0.75rem' }}>
+                      {copiedId === ag.id ? (t?.copied || 'Copiat ✓') : (t?.copyCode || 'Copiar codi')}
                     </button>
                   </div>
                 </div>
               ))}
               {agents.length === 0 && (
-                <div style={{ textAlign: 'center', color: '#2a2a2a', marginTop: '3rem' }}>
-                  <div style={{ fontSize: 11, marginBottom: 8 }}>{t?.noAgents || 'No hi ha agents configurats'}</div>
-                  <button style={s.btnGreen} onClick={() => setView('new-agent')}>{t?.createFirst || '+ CREAR PRIMER AGENT'}</button>
+                <div style={{ textAlign: 'center', color: '#2a2a2a', marginTop: '4rem' }}>
+                  <div style={{ fontSize: 14, marginBottom: 16 }}>{t?.noAgents || 'No hi ha agents configurats'}</div>
+                  <button className="btn-primary" style={btnPrimary} onClick={() => setView('new-agent')}>{t?.createFirst || '+ Crear primer agent'}</button>
                 </div>
               )}
             </div>
           )}
 
+          {/* NEW AGENT */}
           {view === 'new-agent' && (
-            <div style={{ maxWidth: 600 }}>
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div style={s.sectionTitle}>{t?.template || 'TEMPLATE'}</div>
+            <div style={{ maxWidth: 640 }}>
+              <div style={{ marginBottom: '1.75rem' }}>
+                <div style={{ fontSize: 12, color: '#444', marginBottom: '0.875rem', fontWeight: 500, fontFamily: mono, letterSpacing: '0.08em' }}>{t?.template || 'TEMPLATE'}</div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' as any }}>
                   {(['support', 'sales', 'admin'] as const).map(key => (
-                    <button key={key} style={s.templateBtn(newAgent.type === key)} onClick={() => setNewAgent({ ...AGENT_TEMPLATES[key], type: key })}>{key.toUpperCase()}</button>
+                    <button key={key} className="template-btn" onClick={() => setNewAgent({ ...AGENT_TEMPLATES[key], type: key })}
+                      style={{ padding: '0.6rem 1.25rem', border: `1px solid ${newAgent.type === key ? accent : '#1a1a1a'}`, borderRadius: 8, background: newAgent.type === key ? '#7c3aed14' : '#0a0a0a', color: newAgent.type === key ? accentLight : '#444', fontSize: 13, fontFamily: sans, cursor: 'pointer', transition: 'all .15s', fontWeight: newAgent.type === key ? 500 : 400 }}>
+                      {key.charAt(0).toUpperCase() + key.slice(1)}
+                    </button>
                   ))}
-                  <button style={s.templateBtn(newAgent.type === 'custom')} onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: 'custom' })}>CUSTOM</button>
+                  <button className="template-btn" onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: 'custom' })}
+                    style={{ padding: '0.6rem 1.25rem', border: `1px solid ${newAgent.type === 'custom' ? accent : '#1a1a1a'}`, borderRadius: 8, background: newAgent.type === 'custom' ? '#7c3aed14' : '#0a0a0a', color: newAgent.type === 'custom' ? accentLight : '#444', fontSize: 13, fontFamily: sans, cursor: 'pointer', transition: 'all .15s' }}>
+                    Custom
+                  </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1rem' }}>
-                <div><label style={s.label}>{t?.agentName || 'AGENT NAME'}</label><input style={s.fieldInput} value={newAgent.name} onChange={e => setNewAgent({ ...newAgent, name: e.target.value })} placeholder={t?.agentNamePlaceholder || 'e.g. Support Agent'} /></div>
-                <div><label style={s.label}>{t?.description || 'DESCRIPTION'}</label><input style={s.fieldInput} value={newAgent.description} onChange={e => setNewAgent({ ...newAgent, description: e.target.value })} placeholder={t?.descriptionPlaceholder || 'e.g. Manages tickets and FAQs'} /></div>
-                <div><label style={s.label}>{t?.instructions || 'AGENT INSTRUCTIONS (PROMPT)'}</label><textarea style={s.textarea} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder={t?.instructionsPlaceholder || 'Define how the agent should behave...'} rows={8} /></div>
+              <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1.25rem' }}>
+                <div><label style={labelStyle}>{t?.agentName || 'Nom de l\'agent'}</label><input style={inputStyle} value={newAgent.name} onChange={e => setNewAgent({ ...newAgent, name: e.target.value })} placeholder={t?.agentNamePlaceholder || 'e.g. Support Agent'} /></div>
+                <div><label style={labelStyle}>{t?.description || 'Descripció'}</label><input style={inputStyle} value={newAgent.description} onChange={e => setNewAgent({ ...newAgent, description: e.target.value })} placeholder={t?.descriptionPlaceholder || 'e.g. Manages tickets and FAQs'} /></div>
+                <div><label style={labelStyle}>{t?.instructions || 'Instruccions (prompt)'}</label><textarea style={textareaStyle} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder={t?.instructionsPlaceholder || 'Define how the agent should behave...'} rows={8} /></div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button style={s.btn(creating || !newAgent.name || !newAgent.prompt)} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>{creating ? (t?.creating || 'CREATING...') : (t?.createAgent || 'CREATE AGENT')}</button>
-                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => setView('agents')}>{t?.cancel || 'CANCEL'}</button>
+                  <button className="btn-primary" style={{ ...btnPrimary, opacity: (creating || !newAgent.name || !newAgent.prompt) ? 0.5 : 1, cursor: (creating || !newAgent.name || !newAgent.prompt) ? 'not-allowed' : 'pointer' }} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>
+                    {creating ? (t?.creating || 'Creant...') : (t?.createAgent || 'Crear agent')}
+                  </button>
+                  <button className="btn-secondary" style={btnSecondary} onClick={() => setView('agents')}>{t?.cancel || 'Cancel·lar'}</button>
                 </div>
               </div>
             </div>
           )}
 
+          {/* EDIT AGENT */}
           {view === 'edit-agent' && editingAgent && (
-            <div style={{ maxWidth: 600 }}>
-              <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1rem' }}>
-                <div><label style={s.label}>{t?.agentName || 'AGENT NAME'}</label><input style={s.fieldInput} value={editingAgent.name} onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })} /></div>
-                <div><label style={s.label}>{t?.description || 'DESCRIPTION'}</label><input style={s.fieldInput} value={editingAgent.description} onChange={e => setEditingAgent({ ...editingAgent, description: e.target.value })} /></div>
-                <div><label style={s.label}>{t?.instructions || 'AGENT INSTRUCTIONS (PROMPT)'}</label><textarea style={s.textarea} value={editingAgent.prompt} onChange={e => setEditingAgent({ ...editingAgent, prompt: e.target.value })} rows={10} /></div>
+            <div style={{ maxWidth: 640 }}>
+              <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1.25rem' }}>
+                <div><label style={labelStyle}>{t?.agentName || 'Nom de l\'agent'}</label><input style={inputStyle} value={editingAgent.name} onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })} /></div>
+                <div><label style={labelStyle}>{t?.description || 'Descripció'}</label><input style={inputStyle} value={editingAgent.description} onChange={e => setEditingAgent({ ...editingAgent, description: e.target.value })} /></div>
+                <div><label style={labelStyle}>{t?.instructions || 'Instruccions (prompt)'}</label><textarea style={textareaStyle} value={editingAgent.prompt} onChange={e => setEditingAgent({ ...editingAgent, prompt: e.target.value })} rows={10} /></div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button style={s.btn(saving)} disabled={saving} onClick={saveAgent}>{saving ? (t?.saving || 'SAVING...') : (t?.saveChanges || 'SAVE CHANGES')}</button>
-                  <button style={{ ...s.btn(false), background: 'transparent', color: '#444', border: '1px solid #222' }} onClick={() => { setView('agents'); setEditingAgent(null) }}>{t?.cancel || 'CANCEL'}</button>
+                  <button className="btn-primary" style={{ ...btnPrimary, opacity: saving ? 0.5 : 1 }} disabled={saving} onClick={saveAgent}>
+                    {saving ? (t?.saving || 'Guardant...') : (t?.saveChanges || 'Guardar canvis')}
+                  </button>
+                  <button className="btn-secondary" style={btnSecondary} onClick={() => { setView('agents'); setEditingAgent(null) }}>{t?.cancel || 'Cancel·lar'}</button>
                 </div>
               </div>
             </div>
