@@ -18,10 +18,64 @@ const AGENT_TEMPLATES = {
   admin: { name: 'Admin Agent', description: 'Processes documents and updates databases', prompt: `You are an efficient administrative assistant. Your goal is to process administrative requests, extract information from documents and coordinate internal tasks. Be precise and methodical in your responses.` }
 }
 
-const sans = "'Inter', sans-serif"
-const mono = "'IBM Plex Mono', monospace"
-const accent = '#7c3aed'
-const accentLight = '#8b5cf6'
+// Sparkline component
+function Sparkline({ data, color = '#7c3aed' }: { data: number[]; color?: string }) {
+  const w = 80, h = 28
+  const max = Math.max(...data, 1)
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * h}`).join(' ')
+  return (
+    <svg width={w} height={h} style={{ display: 'block' }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" opacity="0.7" />
+    </svg>
+  )
+}
+
+// Search modal
+function SearchModal({ agents, onClose, onSelect }: { agents: Agent[]; onClose: () => void; onSelect: (view: string, data?: any) => void }) {
+  const [q, setQ] = useState('')
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => { ref.current?.focus() }, [])
+  const allConvs = agents.flatMap(ag => ag.conversations.map(c => ({ ...c, agentName: ag.name, agentId: ag.id })))
+  const results = q.length < 2 ? [] : [
+    ...agents.filter(a => a.name.toLowerCase().includes(q.toLowerCase())).map(a => ({ type: 'agent', label: a.name, sub: a.description, data: a })),
+    ...allConvs.filter(c => c.id.toLowerCase().includes(q.toLowerCase()) || c.messages[0]?.content?.toLowerCase().includes(q.toLowerCase())).slice(0, 5).map(c => ({ type: 'conv', label: `Conv #${c.id.slice(-6).toUpperCase()}`, sub: c.messages[0]?.content?.slice(0, 60) || '', data: c })),
+  ]
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh' }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 560, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '0 1rem', borderBottom: '1px solid #e5e7eb' }}>
+          <span style={{ fontSize: 16, color: '#9ca3af', marginRight: '0.75rem' }}>🔍</span>
+          <input ref={ref} value={q} onChange={e => setQ(e.target.value)} placeholder="Cerca agents, converses..." style={{ flex: 1, border: 'none', outline: 'none', padding: '1rem 0', fontSize: 15, color: '#111', background: 'transparent', fontFamily: "'Inter', sans-serif" }} />
+          <kbd style={{ fontSize: 11, color: '#9ca3af', background: '#f3f4f6', padding: '2px 6px', borderRadius: 4, fontFamily: 'monospace' }}>ESC</kbd>
+        </div>
+        {results.length > 0 && (
+          <div style={{ maxHeight: 320, overflowY: 'auto', padding: '0.5rem' }}>
+            {results.map((r, i) => (
+              <div key={i} onClick={() => { onSelect(r.type === 'agent' ? 'agents' : 'conversations', r.data); onClose() }}
+                style={{ padding: '0.75rem 1rem', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem', transition: 'background .1s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#f9fafb')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: r.type === 'agent' ? '#7c3aed14' : '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                  {r.type === 'agent' ? '⬡' : '◌'}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, color: '#111', fontWeight: 500 }}>{r.label}</div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>{r.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {q.length >= 2 && results.length === 0 && (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>Sense resultats per "{q}"</div>
+        )}
+        {q.length < 2 && (
+          <div style={{ padding: '1.5rem', color: '#9ca3af', fontSize: 13, textAlign: 'center' }}>Escriu almenys 2 caràcters</div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -42,15 +96,38 @@ export default function Dashboard() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'resolved'>('all')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [m, setM] = useState<DashMessages | null>(null)
+  const [showSearch, setShowSearch] = useState(false)
+  const [notifications, setNotifications] = useState<{ id: string; text: string; time: string }[]>([])
+  const [showNotif, setShowNotif] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const prevMsgCount = useRef(0)
 
   useEffect(() => {
     fetchData(); fetchConfig(); fetchStats()
     const cookie = document.cookie.split(';').find(c => c.trim().startsWith('locale='))
     const locale = cookie ? cookie.split('=')[1].trim() : 'ca'
     import(`../../messages/${locale}.json`).then(mod => setM(mod.default))
+    // Keyboard shortcut
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowSearch(true) }
+      if (e.key === 'Escape') { setShowSearch(false); setShowNotif(false) }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
   }, [])
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+
+  // Simulate real-time notifications when new messages arrive
+  useEffect(() => {
+    const total = agents.flatMap(a => a.conversations.flatMap(c => c.messages)).length
+    if (total > prevMsgCount.current && prevMsgCount.current > 0) {
+      const newNotif = { id: Date.now().toString(), text: 'Nou missatge rebut', time: new Date().toLocaleTimeString('ca', { hour: '2-digit', minute: '2-digit' }) }
+      setNotifications(prev => [newNotif, ...prev].slice(0, 10))
+    }
+    prevMsgCount.current = total
+  }, [agents])
 
   const t = m?.dashboard
 
@@ -96,11 +173,7 @@ export default function Dashboard() {
     if (!editingAgent) return
     setSaving(true)
     try {
-      await fetch(`/api/agents/${editingAgent.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editingAgent.name, description: editingAgent.description, prompt: editingAgent.prompt })
-      })
+      await fetch(`/api/agents/${editingAgent.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingAgent.name, description: editingAgent.description, prompt: editingAgent.prompt }) })
       await fetchData(); setView('agents'); setEditingAgent(null)
     } finally { setSaving(false) }
   }
@@ -131,7 +204,11 @@ export default function Dashboard() {
     try {
       const res = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId: activeAgentId, message: userMsg }) })
       const data = await res.json()
-      if (data.reply) { setMessages(prev => [...prev, { role: 'assistant', content: data.reply, createdAt: new Date().toISOString() }]); fetchData(); fetchStats() }
+      if (data.reply) {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply, createdAt: new Date().toISOString() }])
+        setNotifications(prev => [{ id: Date.now().toString(), text: `Agent ha respost: ${data.reply.slice(0, 40)}...`, time: new Date().toLocaleTimeString('ca', { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 10))
+        fetchData(); fetchStats()
+      }
     } finally { setLoading(false) }
   }
 
@@ -140,263 +217,366 @@ export default function Dashboard() {
     try {
       const res = await fetch('/api/gmail/process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId }) })
       const data = await res.json()
-      setGmailResult(data.error ? (t?.errorPrefix || 'Error: ') + data.error : (t?.processed || 'Processats {count} emails nous').replace('{count}', data.processed))
+      setGmailResult(data.error ? 'Error: ' + data.error : `Processats ${data.processed} emails nous`)
       if (!data.error) { fetchData(); fetchStats() }
     } finally { setProcessing(false) }
   }
 
   function copyWidgetCode(agentId: string) {
-    const code = `<script>\n  window.AxioraConfig = {\n    agentId: '${agentId}',\n    apiUrl: 'https://calm-smakager-26cab8.netlify.app',\n    title: 'Support',\n    greeting: 'Hi! How can I help you today?'\n  }\n</script>\n<script src="https://calm-smakager-26cab8.netlify.app/widget.js"></script>`
+    const code = `<script>\n  window.AxioraConfig = {\n    agentId: '${agentId}',\n    apiUrl: 'https://calm-smakager-26cab8.netlify.app'\n  }\n</script>\n<script src="https://calm-smakager-26cab8.netlify.app/widget.js"></script>`
     navigator.clipboard.writeText(code)
     setCopiedId(agentId)
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  function handleSearchSelect(viewName: string, data?: any) {
+    setView(viewName as any)
+    if (viewName === 'conversations' && data) {
+      setActiveConv(data)
+      setMessages(data.messages?.slice().reverse() || [])
+    }
+  }
+
   const allConvs = (Array.isArray(agents) ? agents : []).flatMap(ag => ag.conversations.map(c => ({ ...c, agentName: ag.name, agentId: ag.id })))
   const filteredConvs = allConvs.filter(c => filterStatus === 'all' ? true : c.status === filterStatus)
 
+  // Sparkline data (last 7 days simulated from stats)
+  const sparkData = [0, 2, 1, 4, 3, (stats?.messagesToday || 0), (stats?.messagesThisWeek || 0) % 10]
+
   const navItems = [
-    { key: 'dashboard', label: t?.panel || 'Panel', icon: '▦' },
-    { key: 'stats', label: t?.stats || 'Estadístiques', icon: '↗' },
-    { key: 'conversations', label: t?.conversations || 'Converses', icon: '◌' },
+    { key: 'dashboard', label: t?.panel || 'Overview', icon: '⊞' },
+    { key: 'stats', label: t?.stats || 'Analytics', icon: '↗' },
+    { key: 'conversations', label: t?.conversations || 'Conversations', icon: '◌' },
     { key: 'agents', label: t?.agents || 'Agents', icon: '⬡' },
   ]
 
   const pageTitle: Record<string, string> = {
-    dashboard: t?.panelTitle || 'Panel de control',
-    stats: t?.statsTitle || 'Estadístiques',
-    conversations: t?.conversationsTitle || 'Converses',
+    dashboard: t?.panelTitle || 'Overview',
+    stats: t?.statsTitle || 'Analytics',
+    conversations: t?.conversationsTitle || 'Conversations',
     agents: t?.agentsTitle || 'Agents',
-    'new-agent': t?.newAgentTitle || 'Nou agent',
-    'edit-agent': t?.editAgentTitle || 'Editar agent',
+    'new-agent': t?.newAgentTitle || 'New agent',
+    'edit-agent': t?.editAgentTitle || 'Edit agent',
+  }
+
+  const breadcrumb: Record<string, string[]> = {
+    dashboard: ['Overview'],
+    stats: ['Analytics'],
+    conversations: ['Conversations'],
+    agents: ['Agents'],
+    'new-agent': ['Agents', 'New agent'],
+    'edit-agent': ['Agents', 'Edit agent'],
   }
 
   const isActive = (key: string) => view === key || (view === 'new-agent' && key === 'agents') || (view === 'edit-agent' && key === 'agents')
 
-  // Styles
-  const card: any = { background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 12, padding: '1.5rem' }
-  const inputStyle: any = { width: '100%', background: '#080808', border: '1px solid #1a1a1a', borderRadius: 8, padding: '0.7rem 1rem', color: '#e8e4dc', fontSize: 14, fontFamily: sans, outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' }
-  const textareaStyle: any = { ...inputStyle, resize: 'vertical', minHeight: 140, lineHeight: 1.6 }
-  const labelStyle: any = { fontSize: 12, color: '#555', marginBottom: '0.5rem', display: 'block', fontWeight: 500 }
-  const btnPrimary: any = { background: accent, color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontSize: 14, fontFamily: sans, fontWeight: 600, cursor: 'pointer', transition: 'opacity .15s, transform .15s' }
-  const btnSecondary: any = { background: 'transparent', color: '#666', border: '1px solid #222', borderRadius: 8, padding: '0.7rem 1.5rem', fontSize: 14, fontFamily: sans, cursor: 'pointer', transition: 'border-color .2s, color .2s' }
-  const btnOutline: any = { background: 'transparent', color: '#555', border: '1px solid #1a1a1a', borderRadius: 6, padding: '0.4rem 0.875rem', fontSize: 12, fontFamily: sans, cursor: 'pointer', transition: 'all .15s' }
-  const btnDanger: any = { ...btnOutline, color: '#ef4444', borderColor: '#ef444422' }
-  const badge = (status: string): any => ({ fontSize: 10, letterSpacing: '0.08em', padding: '3px 8px', borderRadius: 6, background: status === 'open' ? '#7c3aed18' : '#1a1a1a', color: status === 'open' ? accentLight : '#444', border: `1px solid ${status === 'open' ? '#7c3aed33' : '#222'}`, fontFamily: mono })
+  const unread = notifications.length
+
+  // Stripe-style design tokens
+  const bg = '#f6f7f8'
+  const card = { background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '1.25rem 1.5rem' }
+  const sans = "'Inter', sans-serif"
+  const mono = "'IBM Plex Mono', monospace"
+  const accent = '#7c3aed'
+  const accentLight = '#8b5cf6'
+
+  const inputStyle: any = { width: '100%', background: '#fff', border: '1px solid #d1d5db', borderRadius: 6, padding: '0.6rem 0.875rem', color: '#111', fontSize: 14, fontFamily: sans, outline: 'none', boxSizing: 'border-box', transition: 'border-color .15s, box-shadow .15s' }
+  const textareaStyle: any = { ...inputStyle, resize: 'vertical' as any, minHeight: 140, lineHeight: 1.6 }
+  const labelStyle: any = { fontSize: 13, color: '#374151', marginBottom: '0.4rem', display: 'block', fontWeight: 500 }
+  const btnPrimary: any = { background: accent, color: '#fff', border: 'none', borderRadius: 6, padding: '0.6rem 1.25rem', fontSize: 14, fontFamily: sans, fontWeight: 600, cursor: 'pointer' }
+  const btnSecondary: any = { background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, padding: '0.6rem 1.25rem', fontSize: 14, fontFamily: sans, cursor: 'pointer' }
+  const btnOutline: any = { background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 6, padding: '0.4rem 0.875rem', fontSize: 13, fontFamily: sans, cursor: 'pointer' }
+  const btnDanger: any = { ...btnOutline, color: '#ef4444', borderColor: '#fecaca' }
+
+  const badge = (status: string): any => ({
+    fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 20,
+    background: status === 'open' ? '#f0fdf4' : '#f9fafb',
+    color: status === 'open' ? '#16a34a' : '#6b7280',
+    border: `1px solid ${status === 'open' ? '#bbf7d0' : '#e5e7eb'}`,
+    fontFamily: sans
+  })
+
+  const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : 'AX'
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#050505', color: '#e8e4dc', fontFamily: sans }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: bg, color: '#111', fontFamily: sans, fontSize: 14 }}>
 
       <style>{`
-        @keyframes pulse-accent { 0%,100%{box-shadow:0 0 6px #7c3aed}50%{box-shadow:0 0 16px #7c3aed} }
-        @keyframes fadeSlideIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
-        .view-enter{animation:fadeSlideIn 0.25s ease forwards}
+        @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+        .view-enter{animation:fadeIn 0.2s ease forwards}
         .blink{animation:blink 1s infinite}
-        .nav-item:hover{background:#0f0f0f!important;color:#e8e4dc!important}
-        .card-hover{transition:border-color .2s,transform .2s,box-shadow .2s}
-        .card-hover:hover{border-color:#2a2a2a!important;transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
-        .conv-row{transition:background .15s,border-color .15s}
-        .conv-row:hover{background:#0f0f0f!important;border-color:#222!important}
-        .btn-primary:hover{opacity:.88;transform:translateY(-1px)}
-        .btn-secondary:hover{border-color:#333!important;color:#e8e4dc!important}
-        .btn-outline:hover{border-color:#333!important;color:#e8e4dc!important}
-        input:focus,textarea:focus{border-color:#7c3aed!important;box-shadow:0 0 0 3px #7c3aed18}
-        .template-btn:hover{border-color:#7c3aed!important;color:#8b5cf6!important}
-        .filter-btn:hover{border-color:#333!important;color:#e8e4dc!important}
-        .toggle-btn{transition:background .25s}
-        .stat-card{animation:fadeSlideIn .4s ease forwards;opacity:0}
-        .stat-card:nth-child(2){animation-delay:.07s}
-        .stat-card:nth-child(3){animation-delay:.14s}
-        .stat-card:nth-child(4){animation-delay:.21s}
+        .nav-item:hover{background:#f3f4f6!important}
+        .card-hover{transition:box-shadow .15s,border-color .15s}
+        .card-hover:hover{box-shadow:0 4px 12px rgba(0,0,0,.06)!important;border-color:#d1d5db!important}
+        .conv-row:hover{background:#f9fafb!important}
+        .btn-primary:hover{opacity:.9}
+        .btn-secondary:hover{background:#f9fafb!important}
+        .btn-outline:hover{background:#f9fafb!important;border-color:#d1d5db!important}
+        input:focus,textarea:focus{border-color:#7c3aed!important;box-shadow:0 0 0 3px rgba(124,58,237,.1)!important}
+        .notif-panel{animation:slideDown .15s ease}
+        .stat-card{animation:fadeIn .3s ease forwards;opacity:0}
+        .stat-card:nth-child(2){animation-delay:.06s}
+        .stat-card:nth-child(3){animation-delay:.12s}
+        .stat-card:nth-child(4){animation-delay:.18s}
+        ::-webkit-scrollbar{width:4px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:#e5e7eb;border-radius:2px}
       `}</style>
 
+      {showSearch && <SearchModal agents={agents} onClose={() => setShowSearch(false)} onSelect={handleSearchSelect} />}
+
       {/* Sidebar */}
-      <aside style={{ width: 240, borderRight: '1px solid #111', display: 'flex', flexDirection: 'column', padding: '1.5rem 0', background: '#070707', flexShrink: 0 }}>
-        <div style={{ padding: '0 1.5rem 2rem', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: accent, animation: 'pulse-accent 2s infinite' }} />
-          <span style={{ fontSize: 15, letterSpacing: '0.12em', color: '#e8e4dc', fontWeight: 700, fontFamily: mono }}>AXIORA</span>
+      <aside style={{ width: 220, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', background: '#fff', flexShrink: 0 }}>
+        <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, fontFamily: mono }}>AX</span>
+          </div>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#111', letterSpacing: '-0.01em' }}>Axiora</span>
         </div>
 
-        <nav style={{ flex: 1 }}>
+        <nav style={{ flex: 1, padding: '0.75rem 0.75rem' }}>
           {navItems.map(item => (
-            <div
-              key={item.key}
-              className="nav-item"
-              onClick={() => setView(item.key as any)}
-              style={{
-                padding: '0.7rem 1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
-                color: isActive(item.key) ? '#e8e4dc' : '#444',
-                background: isActive(item.key) ? '#0f0f0f' : 'transparent',
-                borderLeft: isActive(item.key) ? `2px solid ${accent}` : '2px solid transparent',
-                fontSize: 14, fontWeight: isActive(item.key) ? 500 : 400,
-                transition: 'all .15s', marginBottom: 2,
-              }}
-            >
-              <span style={{ fontSize: 12, opacity: 0.6 }}>{item.icon}</span>
+            <div key={item.key} className="nav-item" onClick={() => setView(item.key as any)}
+              style={{ padding: '0.55rem 0.875rem', cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8, color: isActive(item.key) ? accent : '#6b7280', background: isActive(item.key) ? '#7c3aed0f' : 'transparent', fontWeight: isActive(item.key) ? 600 : 400, fontSize: 14, marginBottom: 2, transition: 'all .1s' }}>
+              <span style={{ fontSize: 13, opacity: 0.7 }}>{item.icon}</span>
               {item.label}
             </div>
           ))}
         </nav>
 
-        <div style={{ padding: '0 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+        <div style={{ padding: '0.75rem', borderTop: '1px solid #f3f4f6' }}>
           <LocaleSwitcher />
-          <button
-            style={{ background: 'transparent', border: 'none', color: '#333', fontSize: 12, fontFamily: sans, cursor: 'pointer', padding: 0, textAlign: 'left', transition: 'color .15s' }}
-            onClick={() => { document.cookie = 'token=; Max-Age=0; path=/'; window.location.href = '/login' }}
-          >
-            {t?.logout || 'Tancar sessió'}
+          <button onClick={() => { document.cookie = 'token=; Max-Age=0; path=/'; window.location.href = '/login' }}
+            style={{ ...btnOutline, width: '100%', marginTop: '0.5rem', color: '#6b7280', fontSize: 12 }}>
+            {t?.logout || 'Sign out'}
           </button>
-          <div style={{ fontSize: 10, color: '#1a1a1a', fontFamily: mono }}>v0.1.0-alpha</div>
+          <div style={{ fontSize: 10, color: '#d1d5db', marginTop: '0.5rem', fontFamily: mono, textAlign: 'center' }}>v0.1.0-alpha</div>
         </div>
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+
         {/* Topbar */}
-        <div style={{ borderBottom: '1px solid #111', padding: '1.1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#070707' }}>
-          <span style={{ fontSize: 18, fontWeight: 600, color: '#e8e4dc', letterSpacing: '-0.01em' }}>{pageTitle[view]}</span>
-          <span style={{ fontSize: 12, color: '#333', fontFamily: mono }}>{new Date().toLocaleDateString('ca', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</span>
-        </div>
+        <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0.875rem 1.75rem', display: 'flex', alignItems: 'center', gap: '1rem', position: 'sticky', top: 0, zIndex: 10 }}>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1 }}>
+            {(breadcrumb[view] || ['Overview']).map((crumb, i, arr) => (
+              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: 14, color: i === arr.length - 1 ? '#111' : '#9ca3af', fontWeight: i === arr.length - 1 ? 600 : 400, cursor: i < arr.length - 1 ? 'pointer' : 'default' }}
+                  onClick={() => i < arr.length - 1 && setView('agents')}>
+                  {crumb}
+                </span>
+                {i < arr.length - 1 && <span style={{ color: '#d1d5db', fontSize: 12 }}>/</span>}
+              </span>
+            ))}
+          </div>
 
-        {/* Content */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }} key={view} className="view-enter">
+          {/* Search */}
+          <button onClick={() => setShowSearch(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '0.45rem 0.875rem', color: '#9ca3af', fontSize: 13, cursor: 'pointer', fontFamily: sans }}>
+            <span>🔍</span>
+            <span>Cerca...</span>
+            <kbd style={{ fontSize: 10, background: '#e5e7eb', padding: '1px 5px', borderRadius: 3, fontFamily: mono, color: '#6b7280' }}>⌘K</kbd>
+          </button>
 
-          {/* DASHBOARD */}
-          {view === 'dashboard' && (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-                {[
-                  { label: t?.activeAgents || 'Agents actius', value: stats?.totalAgents ?? 0, sub: null },
-                  { label: t?.openConvs || 'Conv. obertes', value: stats?.openConversations ?? 0, sub: null },
-                  { label: t?.messagesToday || 'Missatges avui', value: stats?.messagesToday ?? 0, sub: `${stats?.messagesThisWeek ?? 0} ${t?.thisWeek || 'aquesta setmana'}` },
-                ].map((item, i) => (
-                  <div key={i} className="card-hover" style={{ ...card }}>
-                    <div style={{ fontSize: 12, color: '#555', marginBottom: '0.75rem', fontWeight: 500 }}>{item.label}</div>
-                    <div style={{ fontSize: 36, fontWeight: 700, color: '#e8e4dc', letterSpacing: '-0.02em' }}>{item.value}</div>
-                    {item.sub && <div style={{ fontSize: 12, color: '#333', marginTop: '0.3rem' }}>{item.sub}</div>}
+          {/* Notifications */}
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setShowNotif(!showNotif)}
+              style={{ width: 34, height: 34, borderRadius: 6, background: '#f9fafb', border: '1px solid #e5e7eb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              <span style={{ fontSize: 15 }}>🔔</span>
+              {unread > 0 && <span style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: accent, color: '#fff', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{unread > 9 ? '9+' : unread}</span>}
+            </button>
+            {showNotif && (
+              <div className="notif-panel" style={{ position: 'absolute', right: 0, top: '110%', width: 320, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.1)', zIndex: 50, overflow: 'hidden' }}>
+                <div style={{ padding: '0.875rem 1rem', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>Notificacions</span>
+                  {unread > 0 && <button onClick={() => setNotifications([])} style={{ fontSize: 11, color: accent, background: 'none', border: 'none', cursor: 'pointer' }}>Netejar tot</button>}
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Sense notificacions</div>
+                ) : notifications.map(n => (
+                  <div key={n.id} style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f9fafb', display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: accent, marginTop: 5, flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: '#374151' }}>{n.text}</div>
+                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{n.time}</div>
+                    </div>
                   </div>
                 ))}
               </div>
-              <div style={{ ...card }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #111' }}>{t?.recentActivity || 'Activitat recent'}</div>
-                {allConvs.filter(c => c.status === 'open').slice(0, 5).map(c => (
-                  <div key={c.id} className="conv-row" onClick={() => { setView('conversations'); setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}
-                    style={{ padding: '0.875rem 1rem', border: '1px solid #111', borderRadius: 8, marginBottom: '0.5rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            )}
+          </div>
+
+          {/* Avatar */}
+          <div style={{ width: 34, height: 34, borderRadius: '50%', background: `linear-gradient(135deg, ${accent}, #a78bfa)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+            {initials}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflow: 'auto', padding: '1.75rem' }} key={view} className="view-enter">
+
+          {/* OVERVIEW */}
+          {view === 'dashboard' && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+                {[
+                  { label: t?.activeAgents || 'Active agents', value: stats?.totalAgents ?? 0, sparkColor: '#7c3aed', delta: '+0%' },
+                  { label: t?.openConvs || 'Open conversations', value: stats?.openConversations ?? 0, sparkColor: '#3b82f6', delta: null },
+                  { label: t?.messagesToday || 'Messages today', value: stats?.messagesToday ?? 0, sparkColor: '#10b981', delta: `${stats?.messagesThisWeek ?? 0} this week` },
+                ].map((item, i) => (
+                  <div key={i} className="card-hover" style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <div style={{ fontSize: 12, color: '#666', marginBottom: 3, fontWeight: 500 }}>{(c as any).agentName}</div>
-                      <div style={{ fontSize: 13, color: '#444' }}>{c.messages[0]?.content?.slice(0, 70) || '...'}...</div>
+                      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: '0.5rem', fontWeight: 500, letterSpacing: '0.02em' }}>{item.label.toUpperCase()}</div>
+                      <div style={{ fontSize: 32, fontWeight: 700, color: '#111', letterSpacing: '-0.02em', lineHeight: 1 }}>{item.value}</div>
+                      {item.delta && <div style={{ fontSize: 12, color: '#6b7280', marginTop: '0.4rem' }}>{item.delta}</div>}
                     </div>
-                    <span style={badge(c.status)}>{c.status.toUpperCase()}</span>
+                    <Sparkline data={sparkData} color={item.sparkColor} />
                   </div>
                 ))}
-                {(stats?.openConversations ?? 0) === 0 && <div style={{ fontSize: 13, color: '#333', textAlign: 'center', padding: '2rem 0' }}>{t?.noOpenConvs || 'Sense converses obertes'}</div>}
+              </div>
+
+              <div style={{ ...card }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f3f4f6' }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{t?.recentActivity || 'Recent activity'}</span>
+                  <button className="btn-outline" style={btnOutline} onClick={() => setView('conversations')}>View all</button>
+                </div>
+                {allConvs.filter(c => c.status === 'open').slice(0, 6).length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem 0', color: '#9ca3af', fontSize: 14 }}>
+                    <div style={{ fontSize: 32, marginBottom: '0.75rem' }}>✉️</div>
+                    <div>{t?.noOpenConvs || 'No open conversations'}</div>
+                  </div>
+                ) : allConvs.filter(c => c.status === 'open').slice(0, 6).map(c => (
+                  <div key={c.id} className="conv-row" onClick={() => { setView('conversations'); setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}
+                    style={{ padding: '0.875rem 0', borderBottom: '1px solid #f9fafb', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background .1s' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>👤</div>
+                      <div>
+                        <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 2 }}>{(c as any).agentName}</div>
+                        <div style={{ fontSize: 14, color: '#111', fontWeight: 400 }}>{c.messages[0]?.content?.slice(0, 65) || '—'}...</div>
+                      </div>
+                    </div>
+                    <span style={badge(c.status)}>{c.status}</span>
+                  </div>
+                ))}
               </div>
             </>
           )}
 
-          {/* STATS */}
+          {/* ANALYTICS */}
           {view === 'stats' && stats && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
                 {[
-                  { label: t?.messagesToday || 'Missatges avui', value: stats.messagesToday },
-                  { label: t?.thisWeek || 'Aquesta setmana', value: stats.messagesThisWeek },
-                  { label: t?.aiReplies || 'Respostes IA', value: stats.autoReplies },
-                  { label: t?.openConvs || 'Conv. obertes', value: stats.openConversations },
+                  { label: t?.messagesToday || 'Messages today', value: stats.messagesToday, color: '#7c3aed' },
+                  { label: t?.thisWeek || 'This week', value: stats.messagesThisWeek, color: '#3b82f6' },
+                  { label: t?.aiReplies || 'AI replies', value: stats.autoReplies, color: '#10b981' },
+                  { label: t?.openConvs || 'Open convs', value: stats.openConversations, color: '#f59e0b' },
                 ].map((item, i) => (
                   <div key={i} className="stat-card card-hover" style={{ ...card }}>
-                    <div style={{ fontSize: 12, color: '#555', marginBottom: '0.75rem', fontWeight: 500 }}>{item.label}</div>
-                    <div style={{ fontSize: 36, fontWeight: 700, color: '#e8e4dc', letterSpacing: '-0.02em' }}>{item.value}</div>
+                    <div style={{ fontSize: 11, color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600, letterSpacing: '0.05em' }}>{item.label.toUpperCase()}</div>
+                    <div style={{ fontSize: 36, fontWeight: 700, color: item.color, letterSpacing: '-0.02em' }}>{item.value}</div>
+                    <Sparkline data={sparkData} color={item.color} />
                   </div>
                 ))}
               </div>
               <div style={{ ...card }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #111' }}>{t?.performanceByAgent || 'Rendiment per agent'}</div>
-                {stats.agentStats.map(ag => (
-                  <div key={ag.id} className="card-hover" style={{ ...card, marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: 14, color: '#e8e4dc', marginBottom: 4, fontWeight: 500 }}>{ag.name}</div>
-                      <div style={{ fontSize: 12, color: '#555' }}>{ag.conversations} {t?.conversations2 || 'converses'} · {ag.messages} {t?.messages || 'missatges'}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f3f4f6' }}>{t?.performanceByAgent || 'Performance by agent'}</div>
+                {stats.agentStats.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem 0', color: '#9ca3af' }}>{t?.noData || 'No data yet'}</div>
+                ) : stats.agentStats.map((ag, i) => (
+                  <div key={ag.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.875rem 0', borderBottom: i < stats.agentStats.length - 1 ? '1px solid #f9fafb' : 'none' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: '#7c3aed14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>⬡</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, color: '#111', fontWeight: 500 }}>{ag.name}</div>
+                      <div style={{ fontSize: 12, color: '#9ca3af' }}>{ag.conversations} conversations · {ag.messages} messages</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 28, fontWeight: 700, color: accentLight, letterSpacing: '-0.02em' }}>{ag.messages}</div>
-                      <div style={{ fontSize: 10, color: '#444', fontFamily: mono }}>MISSATGES</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: accent }}>{ag.messages}</div>
+                      <div style={{ fontSize: 11, color: '#9ca3af' }}>messages</div>
                     </div>
+                    <div style={{ width: 80 }}><Sparkline data={sparkData} color={accent} /></div>
                   </div>
                 ))}
-                {stats.agentStats.length === 0 && <div style={{ fontSize: 13, color: '#333', textAlign: 'center', padding: '2rem 0' }}>{t?.noData || 'Sense dades encara'}</div>}
               </div>
             </>
           )}
 
           {/* CONVERSATIONS */}
           {view === 'conversations' && (
-            <div style={{ display: 'flex', gap: '1.5rem', height: 'calc(100vh - 130px)' }}>
-              <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', gap: '1.25rem', height: 'calc(100vh - 120px)' }}>
+              <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', gap: '0.4rem' }}>
                   {(['all', 'open', 'resolved'] as const).map(f => (
-                    <button key={f} className="filter-btn" onClick={() => setFilterStatus(f)}
-                      style={{ flex: 1, padding: '0.5rem', border: `1px solid ${filterStatus === f ? accent : '#1a1a1a'}`, borderRadius: 6, background: filterStatus === f ? '#7c3aed14' : 'transparent', color: filterStatus === f ? accentLight : '#444', fontSize: 11, fontFamily: mono, cursor: 'pointer', transition: 'all .15s' }}>
-                      {f === 'all' ? (t?.allConvs || 'TOTES') : f === 'open' ? (t?.openConvsFilter || 'OBERTES') : (t?.resolvedConvs || 'RESOLTES')}
+                    <button key={f} onClick={() => setFilterStatus(f)}
+                      style={{ flex: 1, padding: '0.45rem', border: `1px solid ${filterStatus === f ? accent : '#e5e7eb'}`, borderRadius: 6, background: filterStatus === f ? '#7c3aed0f' : '#fff', color: filterStatus === f ? accent : '#6b7280', fontSize: 12, fontWeight: filterStatus === f ? 600 : 400, fontFamily: sans, cursor: 'pointer' }}>
+                      {f === 'all' ? 'All' : f === 'open' ? 'Open' : 'Resolved'}
                     </button>
                   ))}
                 </div>
-                {filteredConvs.map(c => (
-                  <div key={c.id} className="conv-row" onClick={() => { setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}
-                    style={{ padding: '0.875rem 1rem', border: `1px solid ${activeConv?.id === c.id ? '#7c3aed44' : '#111'}`, borderRadius: 10, cursor: 'pointer', background: activeConv?.id === c.id ? '#7c3aed0a' : '#0a0a0a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: 12, color: '#666', marginBottom: 3, fontWeight: 500 }}>{(c as any).agentName}</div>
-                      <div style={{ fontSize: 11, color: '#333', fontFamily: mono }}>#{c.id.slice(-6).toUpperCase()}</div>
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {filteredConvs.map(c => (
+                    <div key={c.id} className="conv-row" onClick={() => { setActiveConv(c); setMessages(c.messages.slice().reverse()); setActiveAgentId((c as any).agentId) }}
+                      style={{ padding: '0.875rem 1rem', border: `1px solid ${activeConv?.id === c.id ? '#7c3aed44' : '#e5e7eb'}`, borderRadius: 8, cursor: 'pointer', background: activeConv?.id === c.id ? '#7c3aed08' : '#fff', transition: 'all .1s' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>{(c as any).agentName}</span>
+                        <span style={badge(c.status)}>{c.status}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: mono }}>#{c.id.slice(-8).toUpperCase()}</div>
                     </div>
-                    <span style={badge(c.status)}>{c.status === 'open' ? (t?.open || 'OBERTA') : (t?.resolved || 'RESOLTA')}</span>
-                  </div>
-                ))}
-                {filteredConvs.length === 0 && <div style={{ fontSize: 13, color: '#333', textAlign: 'center', padding: '2rem 0' }}>{t?.noConversations || 'Sense converses'}</div>}
+                  ))}
+                  {filteredConvs.length === 0 && <div style={{ textAlign: 'center', padding: '3rem 0', color: '#9ca3af', fontSize: 13 }}>No conversations</div>}
+                </div>
               </div>
 
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', ...card }}>
+              <div style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 {activeConv ? (
                   <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #111' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px solid #f3f4f6', marginBottom: '1rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{ fontSize: 13, color: '#666', fontFamily: mono }}>#{activeConv.id.slice(-6).toUpperCase()}</span>
-                        <span style={badge(activeConv.status)}>{activeConv.status === 'open' ? (t?.open || 'OBERTA') : (t?.resolved || 'RESOLTA')}</span>
+                        <span style={{ fontSize: 13, color: '#6b7280', fontFamily: mono }}>#{activeConv.id.slice(-8).toUpperCase()}</span>
+                        <span style={badge(activeConv.status)}>{activeConv.status}</span>
                       </div>
                       {activeConv.status === 'open' ? (
-                        <button style={btnOutline} className="btn-outline" onClick={() => closeConversation(activeConv.id)}>{t?.markResolved || 'Marcar resolta'}</button>
+                        <button className="btn-outline" style={btnOutline} onClick={() => closeConversation(activeConv.id)}>{t?.markResolved || 'Mark resolved'}</button>
                       ) : (
-                        <button style={btnOutline} className="btn-outline" onClick={() => reopenConversation(activeConv.id)}>{t?.reopen || 'Reobrir'}</button>
+                        <button className="btn-outline" style={btnOutline} onClick={() => reopenConversation(activeConv.id)}>{t?.reopen || 'Reopen'}</button>
                       )}
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '1rem' }}>
                       {messages.map((msg, i) => (
                         <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: 4 }}>
-                          <span style={{ fontSize: 11, color: '#333', fontFamily: mono }}>{msg.role === 'user' ? (t?.client || 'CLIENT') : (t?.agent || 'AGENT')}</span>
-                          <div style={{ background: msg.role === 'user' ? '#0f0f0f' : '#7c3aed0a', border: `1px solid ${msg.role === 'user' ? '#1a1a1a' : '#7c3aed22'}`, borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px', padding: '0.75rem 1rem', maxWidth: '72%', fontSize: 14, lineHeight: 1.6, color: '#e0dcd4' }}>
+                          <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{msg.role === 'user' ? 'Customer' : 'Agent'}</span>
+                          <div style={{ background: msg.role === 'user' ? '#f9fafb' : '#7c3aed0a', border: `1px solid ${msg.role === 'user' ? '#e5e7eb' : '#7c3aed22'}`, borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px', padding: '0.75rem 1rem', maxWidth: '72%', fontSize: 14, lineHeight: 1.6, color: '#111' }}>
                             {msg.content}
                           </div>
                         </div>
                       ))}
                       {loading && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                          <span style={{ fontSize: 11, color: '#333', fontFamily: mono }}>{t?.agent || 'AGENT'}</span>
-                          <div style={{ background: '#7c3aed0a', border: '1px solid #7c3aed22', borderRadius: '12px 12px 12px 4px', padding: '0.75rem 1rem', fontSize: 14, color: '#555' }}>
-                            <span>{t?.processing ? t.processing.slice(0, -1) : 'processant'}<span className="blink">_</span></span>
+                          <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>Agent</span>
+                          <div style={{ background: '#7c3aed0a', border: '1px solid #7c3aed22', borderRadius: '12px 12px 12px 4px', padding: '0.75rem 1rem', fontSize: 14, color: '#6b7280' }}>
+                            <span>Typing<span className="blink">...</span></span>
                           </div>
                         </div>
                       )}
                       <div ref={bottomRef} />
                     </div>
                     {activeConv.status === 'open' && (
-                      <div style={{ borderTop: '1px solid #111', paddingTop: '1rem', display: 'flex', gap: '0.75rem' }}>
-                        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder={t?.replyPlaceholder || 'Respondre manualment...'} style={{ ...inputStyle, flex: 1 }} />
-                        <button onClick={sendMessage} disabled={loading} className="btn-primary" style={{ ...btnPrimary, opacity: loading ? 0.5 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>{t?.send || 'Enviar'}</button>
+                      <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1rem', display: 'flex', gap: '0.75rem' }}>
+                        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder={t?.replyPlaceholder || 'Reply manually...'} style={{ ...inputStyle, flex: 1 }} />
+                        <button onClick={sendMessage} disabled={loading} className="btn-primary" style={{ ...btnPrimary, opacity: loading ? 0.5 : 1 }}>{t?.send || 'Send'}</button>
                       </div>
                     )}
                   </>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#2a2a2a', fontSize: 14, fontFamily: mono }}>{t?.selectConversation || 'SELECCIONA UNA CONVERSA'}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#9ca3af' }}>
+                    <div style={{ fontSize: 40, marginBottom: '1rem' }}>◌</div>
+                    <div style={{ fontSize: 14 }}>Select a conversation</div>
+                  </div>
                 )}
               </div>
             </div>
@@ -405,64 +585,72 @@ export default function Dashboard() {
           {/* AGENTS */}
           {view === 'agents' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <div style={{ fontSize: 16, fontWeight: 600, color: '#888' }}>{t?.configuredAgents || 'Agents configurats'}</div>
-                <button className="btn-primary" style={btnPrimary} onClick={() => setView('new-agent')}>{t?.newAgent || '+ Nou agent'}</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#111' }}>{t?.configuredAgents || 'Agents'}</div>
+                  <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{agents.length} agent{agents.length !== 1 ? 's' : ''} configured</div>
+                </div>
+                <button className="btn-primary" style={btnPrimary} onClick={() => setView('new-agent')}>{t?.newAgent || '+ New agent'}</button>
               </div>
               {agents.map(ag => (
                 <div key={ag.id} className="card-hover" style={{ ...card, marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 16, color: '#e8e4dc', marginBottom: 6, fontWeight: 600 }}>{ag.name}</div>
-                      <div style={{ fontSize: 13, color: '#555', marginBottom: '0.5rem' }}>{ag.description}</div>
-                      <div style={{ fontSize: 11, color: '#222', fontFamily: mono }}>ID: {ag.id}</div>
+                    <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'flex-start' }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: '#7c3aed14', border: '1px solid #7c3aed22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>⬡</div>
+                      <div>
+                        <div style={{ fontSize: 15, color: '#111', fontWeight: 600, marginBottom: 3 }}>{ag.name}</div>
+                        <div style={{ fontSize: 13, color: '#6b7280' }}>{ag.description}</div>
+                        <div style={{ fontSize: 11, color: '#d1d5db', fontFamily: mono, marginTop: 4 }}>ID: {ag.id}</div>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
-                      <span style={badge('open')}>{t?.active || 'ACTIU'}</span>
-                      <div style={{ fontSize: 12, color: '#444' }}>{ag.conversations.length} {t?.conversations2 || 'converses'}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                      <span style={badge('open')}>{t?.active || 'Active'}</span>
+                      <div style={{ fontSize: 12, color: '#9ca3af' }}>{ag.conversations.length} conversations</div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn-outline" style={btnOutline} onClick={() => { setEditingAgent(ag); setView('edit-agent') }}>{t?.edit || 'Editar'}</button>
-                        <button style={btnDanger} onClick={() => deleteAgent(ag.id)}>{t?.delete || 'Eliminar'}</button>
+                        <button className="btn-outline" style={btnOutline} onClick={() => { setEditingAgent(ag); setView('edit-agent') }}>{t?.edit || 'Edit'}</button>
+                        <button style={btnDanger} onClick={() => deleteAgent(ag.id)}>{t?.delete || 'Delete'}</button>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ borderTop: '1px solid #111', paddingTop: '1.25rem', marginBottom: '1.25rem' }}>
-                    <div style={{ fontSize: 12, color: '#444', marginBottom: '1rem', fontWeight: 500, fontFamily: mono, letterSpacing: '0.08em' }}>{t?.gmailIntegration || 'INTEGRACIÓ GMAIL'}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', padding: '1rem', background: '#080808', borderRadius: 8, border: '1px solid #111' }}>
+                  <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.25rem', marginBottom: '1.25rem' }}>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginBottom: '0.875rem', fontWeight: 600, letterSpacing: '0.05em' }}>GMAIL INTEGRATION</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem', padding: '0.875rem 1rem', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
                       <div>
-                        <div style={{ fontSize: 14, color: '#e8e4dc', marginBottom: 4, fontWeight: 500 }}>{t?.autoReply || 'Resposta automàtica'}</div>
-                        <div style={{ fontSize: 12, color: '#555' }}>{autoReply ? (t?.autoReplyOn || "L'agent respon emails automàticament") : (t?.autoReplyOff || "L'agent llegeix però no respon")}</div>
+                        <div style={{ fontSize: 14, color: '#111', fontWeight: 500, marginBottom: 2 }}>{t?.autoReply || 'Auto-reply'}</div>
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>{autoReply ? 'Agent replies automatically' : 'Agent reads but does not reply'}</div>
                       </div>
-                      <button className="toggle-btn" onClick={toggleAutoReply} style={{ width: 44, height: 24, borderRadius: 12, background: autoReply ? accent : '#222', position: 'relative', cursor: 'pointer', border: 'none', outline: 'none' }}>
-                        <div style={{ position: 'absolute', top: 3, left: autoReply ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .25s' }} />
+                      <button onClick={toggleAutoReply} style={{ width: 44, height: 24, borderRadius: 12, background: autoReply ? accent : '#d1d5db', position: 'relative', cursor: 'pointer', border: 'none', outline: 'none', transition: 'background .2s' }}>
+                        <div style={{ position: 'absolute', top: 3, left: autoReply ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
                       </button>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as any }}>
-                      <a href="/api/gmail/auth" className="btn-primary" style={{ ...btnPrimary, textDecoration: 'none', fontSize: 13 }}>{t?.connectGmail || 'Connectar Gmail'}</a>
-                      <button onClick={() => processEmails(ag.id)} disabled={processing} className="btn-secondary" style={{ ...btnSecondary, opacity: processing ? 0.5 : 1 }}>
-                        {processing ? (t?.processing2 || 'Processant...') : (t?.processEmails || 'Processar emails')}
+                      <a href="/api/gmail/auth" className="btn-primary" style={{ ...btnPrimary, textDecoration: 'none', fontSize: 13 }}>{t?.connectGmail || 'Connect Gmail'}</a>
+                      <button onClick={() => processEmails(ag.id)} disabled={processing} className="btn-secondary" style={{ ...btnSecondary, opacity: processing ? 0.5 : 1, fontSize: 13 }}>
+                        {processing ? 'Processing...' : t?.processEmails || 'Process emails'}
                       </button>
                     </div>
-                    {gmailResult && <div style={{ marginTop: '0.75rem', fontSize: 13, color: gmailResult.startsWith('Error') ? '#ef4444' : accentLight }}>{gmailResult}</div>}
+                    {gmailResult && <div style={{ marginTop: '0.75rem', fontSize: 13, color: gmailResult.startsWith('Error') ? '#ef4444' : '#16a34a', padding: '0.5rem 0.75rem', background: gmailResult.startsWith('Error') ? '#fef2f2' : '#f0fdf4', borderRadius: 6, border: `1px solid ${gmailResult.startsWith('Error') ? '#fecaca' : '#bbf7d0'}` }}>{gmailResult}</div>}
                   </div>
 
-                  <div style={{ borderTop: '1px solid #111', paddingTop: '1.25rem' }}>
-                    <div style={{ fontSize: 12, color: '#444', marginBottom: '0.5rem', fontWeight: 500, fontFamily: mono, letterSpacing: '0.08em' }}>{t?.widgetTitle || 'WIDGET'}</div>
-                    <div style={{ fontSize: 13, color: '#555', marginBottom: '0.75rem' }}>{t?.widgetDesc || 'Enganxa aquest codi al teu web:'}</div>
-                    <div style={{ background: '#080808', border: '1px solid #111', borderRadius: 8, padding: '1rem', fontSize: 11, color: accentLight, fontFamily: mono, lineHeight: 1.8, whiteSpace: 'pre' as any, overflowX: 'auto' as any }}>
+                  <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.25rem' }}>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600, letterSpacing: '0.05em' }}>EMBED WIDGET</div>
+                    <div style={{ fontSize: 13, color: '#6b7280', marginBottom: '0.75rem' }}>{t?.widgetDesc || 'Paste this code into your website:'}</div>
+                    <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '1rem', fontSize: 12, color: '#374151', fontFamily: mono, lineHeight: 1.8, whiteSpace: 'pre' as any, overflowX: 'auto' as any }}>
                       {`<script>\n  window.AxioraConfig = {\n    agentId: '${ag.id}',\n    apiUrl: 'https://calm-smakager-26cab8.netlify.app'\n  }\n</script>\n<script src="https://calm-smakager-26cab8.netlify.app/widget.js"></script>`}
                     </div>
-                    <button onClick={() => copyWidgetCode(ag.id)} className="btn-outline" style={{ ...btnOutline, marginTop: '0.75rem' }}>
-                      {copiedId === ag.id ? (t?.copied || 'Copiat ✓') : (t?.copyCode || 'Copiar codi')}
+                    <button onClick={() => copyWidgetCode(ag.id)} className="btn-secondary" style={{ ...btnSecondary, marginTop: '0.75rem', fontSize: 13 }}>
+                      {copiedId === ag.id ? '✓ Copied!' : t?.copyCode || 'Copy code'}
                     </button>
                   </div>
                 </div>
               ))}
               {agents.length === 0 && (
-                <div style={{ textAlign: 'center', color: '#2a2a2a', marginTop: '4rem' }}>
-                  <div style={{ fontSize: 14, marginBottom: 16 }}>{t?.noAgents || 'No hi ha agents configurats'}</div>
-                  <button className="btn-primary" style={btnPrimary} onClick={() => setView('new-agent')}>{t?.createFirst || '+ Crear primer agent'}</button>
+                <div style={{ ...card, textAlign: 'center', padding: '4rem 2rem' }}>
+                  <div style={{ fontSize: 40, marginBottom: '1rem' }}>⬡</div>
+                  <div style={{ fontSize: 15, color: '#111', fontWeight: 600, marginBottom: '0.5rem' }}>No agents yet</div>
+                  <div style={{ fontSize: 13, color: '#6b7280', marginBottom: '1.5rem' }}>Create your first agent to get started</div>
+                  <button className="btn-primary" style={btnPrimary} onClick={() => setView('new-agent')}>+ Create agent</button>
                 </div>
               )}
             </div>
@@ -471,30 +659,32 @@ export default function Dashboard() {
           {/* NEW AGENT */}
           {view === 'new-agent' && (
             <div style={{ maxWidth: 640 }}>
-              <div style={{ marginBottom: '1.75rem' }}>
-                <div style={{ fontSize: 12, color: '#444', marginBottom: '0.875rem', fontWeight: 500, fontFamily: mono, letterSpacing: '0.08em' }}>{t?.template || 'TEMPLATE'}</div>
+              <div style={{ ...card, marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: 13, color: '#6b7280', marginBottom: '0.875rem', fontWeight: 600, letterSpacing: '0.05em' }}>TEMPLATE</div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' as any }}>
                   {(['support', 'sales', 'admin'] as const).map(key => (
-                    <button key={key} className="template-btn" onClick={() => setNewAgent({ ...AGENT_TEMPLATES[key], type: key })}
-                      style={{ padding: '0.6rem 1.25rem', border: `1px solid ${newAgent.type === key ? accent : '#1a1a1a'}`, borderRadius: 8, background: newAgent.type === key ? '#7c3aed14' : '#0a0a0a', color: newAgent.type === key ? accentLight : '#444', fontSize: 13, fontFamily: sans, cursor: 'pointer', transition: 'all .15s', fontWeight: newAgent.type === key ? 500 : 400 }}>
+                    <button key={key} onClick={() => setNewAgent({ ...AGENT_TEMPLATES[key], type: key })}
+                      style={{ padding: '0.5rem 1.25rem', border: `1px solid ${newAgent.type === key ? accent : '#e5e7eb'}`, borderRadius: 6, background: newAgent.type === key ? '#7c3aed0f' : '#fff', color: newAgent.type === key ? accent : '#374151', fontSize: 13, fontFamily: sans, cursor: 'pointer', fontWeight: newAgent.type === key ? 600 : 400 }}>
                       {key.charAt(0).toUpperCase() + key.slice(1)}
                     </button>
                   ))}
-                  <button className="template-btn" onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: 'custom' })}
-                    style={{ padding: '0.6rem 1.25rem', border: `1px solid ${newAgent.type === 'custom' ? accent : '#1a1a1a'}`, borderRadius: 8, background: newAgent.type === 'custom' ? '#7c3aed14' : '#0a0a0a', color: newAgent.type === 'custom' ? accentLight : '#444', fontSize: 13, fontFamily: sans, cursor: 'pointer', transition: 'all .15s' }}>
+                  <button onClick={() => setNewAgent({ name: '', description: '', prompt: '', type: 'custom' })}
+                    style={{ padding: '0.5rem 1.25rem', border: `1px solid ${newAgent.type === 'custom' ? accent : '#e5e7eb'}`, borderRadius: 6, background: newAgent.type === 'custom' ? '#7c3aed0f' : '#fff', color: newAgent.type === 'custom' ? accent : '#374151', fontSize: 13, fontFamily: sans, cursor: 'pointer' }}>
                     Custom
                   </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1.25rem' }}>
-                <div><label style={labelStyle}>{t?.agentName || 'Nom de l\'agent'}</label><input style={inputStyle} value={newAgent.name} onChange={e => setNewAgent({ ...newAgent, name: e.target.value })} placeholder={t?.agentNamePlaceholder || 'e.g. Support Agent'} /></div>
-                <div><label style={labelStyle}>{t?.description || 'Descripció'}</label><input style={inputStyle} value={newAgent.description} onChange={e => setNewAgent({ ...newAgent, description: e.target.value })} placeholder={t?.descriptionPlaceholder || 'e.g. Manages tickets and FAQs'} /></div>
-                <div><label style={labelStyle}>{t?.instructions || 'Instruccions (prompt)'}</label><textarea style={textareaStyle} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder={t?.instructionsPlaceholder || 'Define how the agent should behave...'} rows={8} /></div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button className="btn-primary" style={{ ...btnPrimary, opacity: (creating || !newAgent.name || !newAgent.prompt) ? 0.5 : 1, cursor: (creating || !newAgent.name || !newAgent.prompt) ? 'not-allowed' : 'pointer' }} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>
-                    {creating ? (t?.creating || 'Creant...') : (t?.createAgent || 'Crear agent')}
-                  </button>
-                  <button className="btn-secondary" style={btnSecondary} onClick={() => setView('agents')}>{t?.cancel || 'Cancel·lar'}</button>
+              <div style={{ ...card }}>
+                <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1.25rem' }}>
+                  <div><label style={labelStyle}>{t?.agentName || 'Agent name'}</label><input style={inputStyle} value={newAgent.name} onChange={e => setNewAgent({ ...newAgent, name: e.target.value })} placeholder="e.g. Support Agent" /></div>
+                  <div><label style={labelStyle}>{t?.description || 'Description'}</label><input style={inputStyle} value={newAgent.description} onChange={e => setNewAgent({ ...newAgent, description: e.target.value })} placeholder="e.g. Manages tickets and FAQs" /></div>
+                  <div><label style={labelStyle}>{t?.instructions || 'Instructions (prompt)'}</label><textarea style={textareaStyle} value={newAgent.prompt} onChange={e => setNewAgent({ ...newAgent, prompt: e.target.value })} placeholder="Define how the agent should behave..." rows={8} /></div>
+                  <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid #f3f4f6' }}>
+                    <button className="btn-primary" style={{ ...btnPrimary, opacity: (creating || !newAgent.name || !newAgent.prompt) ? 0.5 : 1, cursor: (creating || !newAgent.name || !newAgent.prompt) ? 'not-allowed' : 'pointer' }} disabled={creating || !newAgent.name || !newAgent.prompt} onClick={createAgent}>
+                      {creating ? 'Creating...' : t?.createAgent || 'Create agent'}
+                    </button>
+                    <button className="btn-secondary" style={btnSecondary} onClick={() => setView('agents')}>Cancel</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -503,15 +693,17 @@ export default function Dashboard() {
           {/* EDIT AGENT */}
           {view === 'edit-agent' && editingAgent && (
             <div style={{ maxWidth: 640 }}>
-              <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1.25rem' }}>
-                <div><label style={labelStyle}>{t?.agentName || 'Nom de l\'agent'}</label><input style={inputStyle} value={editingAgent.name} onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })} /></div>
-                <div><label style={labelStyle}>{t?.description || 'Descripció'}</label><input style={inputStyle} value={editingAgent.description} onChange={e => setEditingAgent({ ...editingAgent, description: e.target.value })} /></div>
-                <div><label style={labelStyle}>{t?.instructions || 'Instruccions (prompt)'}</label><textarea style={textareaStyle} value={editingAgent.prompt} onChange={e => setEditingAgent({ ...editingAgent, prompt: e.target.value })} rows={10} /></div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button className="btn-primary" style={{ ...btnPrimary, opacity: saving ? 0.5 : 1 }} disabled={saving} onClick={saveAgent}>
-                    {saving ? (t?.saving || 'Guardant...') : (t?.saveChanges || 'Guardar canvis')}
-                  </button>
-                  <button className="btn-secondary" style={btnSecondary} onClick={() => { setView('agents'); setEditingAgent(null) }}>{t?.cancel || 'Cancel·lar'}</button>
+              <div style={{ ...card }}>
+                <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1.25rem' }}>
+                  <div><label style={labelStyle}>{t?.agentName || 'Agent name'}</label><input style={inputStyle} value={editingAgent.name} onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })} /></div>
+                  <div><label style={labelStyle}>{t?.description || 'Description'}</label><input style={inputStyle} value={editingAgent.description} onChange={e => setEditingAgent({ ...editingAgent, description: e.target.value })} /></div>
+                  <div><label style={labelStyle}>{t?.instructions || 'Instructions (prompt)'}</label><textarea style={textareaStyle} value={editingAgent.prompt} onChange={e => setEditingAgent({ ...editingAgent, prompt: e.target.value })} rows={10} /></div>
+                  <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid #f3f4f6' }}>
+                    <button className="btn-primary" style={{ ...btnPrimary, opacity: saving ? 0.5 : 1 }} disabled={saving} onClick={saveAgent}>
+                      {saving ? 'Saving...' : t?.saveChanges || 'Save changes'}
+                    </button>
+                    <button className="btn-secondary" style={btnSecondary} onClick={() => { setView('agents'); setEditingAgent(null) }}>Cancel</button>
+                  </div>
                 </div>
               </div>
             </div>
