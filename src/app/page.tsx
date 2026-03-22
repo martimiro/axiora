@@ -173,6 +173,13 @@ export default function Dashboard() {
     if (res.ok) { const data = await res.json(); setUser(data) }
   }
 
+  async function fetchCalendar() {
+    try {
+      const res = await fetch('/api/calendar/events')
+      if (res.ok) { const data = await res.json(); setCalendarEvents(Array.isArray(data) ? data : []); setCalendarConnected(true) }
+    } catch (e) { setCalendarConnected(false) }
+  }
+
   async function fetchData() {
     const res = await fetch('/api/conversations')
     if (!res.ok) return
