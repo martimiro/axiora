@@ -132,6 +132,8 @@ export default function Dashboard() {
   const [autoReply, setAutoReply] = useState(false)
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
   const [view, setView] = useState<'dashboard' | 'stats' | 'conversations' | 'agents' | 'new-agent' | 'edit-agent' | 'calendar'>('dashboard')
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([])
+  const [calendarConnected, setCalendarConnected] = useState(false)
   const [newAgent, setNewAgent] = useState({ name: '', description: '', prompt: '', type: 'support' })
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [creating, setCreating] = useState(false)
