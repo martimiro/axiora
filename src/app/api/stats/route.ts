@@ -15,6 +15,8 @@ export async function GET() {
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const startOfWeek = new Date(now)
   startOfWeek.setDate(now.getDate() - 7)
+  const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+  const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
   const agents = await prisma.agent.findMany({
     where: { userId },
@@ -34,6 +36,8 @@ export async function GET() {
   const msgsThisWeek = allMessages.filter(m => new Date(m.createdAt) >= startOfWeek)
   const assistantMsgs = allMessages.filter(m => m.role === 'assistant')
   const openConvs = allConversations.filter(c => c.status === 'open')
+  const msgsYesterday = allMessages.filter(m => new Date(m.createdAt) >= startOfYesterday && new Date(m.createdAt) < endOfYesterday)
+  const convsYesterday = allConversations.filter(c => new Date(c.createdAt) >= startOfYesterday && new Date(c.createdAt) < endOfYesterday)
 
   return NextResponse.json({
     totalAgents: agents.length,
