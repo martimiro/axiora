@@ -147,7 +147,7 @@ export default function Dashboard() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetchData(); fetchConfig(); fetchStats(); fetchUser()
+    fetchData(); fetchConfig(); fetchStats(); fetchUser(); fetchCalendar()
     const cookie = document.cookie.split(';').find(c => c.trim().startsWith('locale='))
     const locale = cookie ? cookie.split('=')[1].trim() : 'ca'
     import(`../../messages/${locale}.json`).then(mod => setM(mod.default))
@@ -280,6 +280,7 @@ export default function Dashboard() {
     { key: 'stats', label: t?.stats || 'Analytics', icon: '↗' },
     { key: 'conversations', label: t?.conversations || 'Conversations', icon: '◌' },
     { key: 'agents', label: t?.agents || 'Agents', icon: '⬡' },
+    { key: 'calendar', label: 'Calendar', icon: '📅' },
   ]
 
   const pageTitle: Record<string, string> = {
@@ -935,134 +936,7 @@ export default function Dashboard() {
 
 
           {/* CALENDAR */}
-          {view === 'calendar' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#111' }}>Calendar</div>
-                  <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>
-                    {calendarConnected ? `${calendarEvents.length} upcoming events` : 'Connect your Google Calendar to get started'}
-                  </div>
-                </div>
-                {!calendarConnected && (
-                  <a href="/api/calendar/auth" className="btn-primary" style={{ ...btnPrimary, textDecoration: 'none', fontSize: 13 }}>
-                    Connect Google Calendar
-                  </a>
-                )}
-              </div>
-
-              {!calendarConnected ? (
-                <div style={{ ...card, textAlign: 'center', padding: '4rem 2rem' }}>
-                  <div style={{ fontSize: 48, marginBottom: '1rem' }}>📅</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: '#111', marginBottom: '0.5rem' }}>No calendar connected</div>
-                  <div style={{ fontSize: 13, color: '#6b7280', marginBottom: '1.5rem', maxWidth: 400, margin: '0 auto 1.5rem' }}>
-                    Connect your Google Calendar so agents can check availability and schedule meetings automatically.
-                  </div>
-                  <a href="/api/calendar/auth" className="btn-primary" style={{ ...btnPrimary, textDecoration: 'none' }}>
-                    Connect Google Calendar
-                  </a>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.25rem' }}>
-                  {/* Events list */}
-                  <div style={{ ...card }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f3f4f6' }}>
-                      Upcoming events
-                    </div>
-                    {calendarEvents.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '3rem 0', color: '#9ca3af' }}>
-                        <div style={{ fontSize: 36, marginBottom: '0.75rem', opacity: 0.4 }}>📭</div>
-                        <div style={{ fontSize: 14 }}>No upcoming events</div>
-                      </div>
-                    ) : calendarEvents.map((event: any, i: number) => {
-                      const start = event.start?.dateTime || event.start?.date
-                      const end = event.end?.dateTime || event.end?.date
-                      const startDate = start ? new Date(start) : null
-                      const isAllDay = !event.start?.dateTime
-                      const hasAttendees = event.attendees && event.attendees.length > 0
-                      return (
-                        <div key={event.id || i} style={{ display: 'flex', gap: '1rem', padding: '0.875rem 0', borderBottom: i < calendarEvents.length - 1 ? '1px solid #f9fafb' : 'none', alignItems: 'flex-start' }}>
-                          <div style={{ width: 44, flexShrink: 0, textAlign: 'center', background: '#7c3aed08', border: '1px solid #7c3aed22', borderRadius: 8, padding: '0.4rem 0.25rem' }}>
-                            <div style={{ fontSize: 10, color: '#7c3aed', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' as any }}>
-                              {startDate ? startDate.toLocaleDateString('ca', { month: 'short' }) : '—'}
-                            </div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#111', lineHeight: 1.1 }}>
-                              {startDate ? startDate.getDate() : '—'}
-                            </div>
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {event.summary || 'Untitled event'}
-                            </div>
-                            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: hasAttendees ? 4 : 0 }}>
-                              {isAllDay ? 'All day' : startDate ? startDate.toLocaleTimeString('ca', { hour: '2-digit', minute: '2-digit' }) + (end ? ' – ' + new Date(end).toLocaleTimeString('ca', { hour: '2-digit', minute: '2-digit' }) : '') : ''}
-                              {event.location ? ` · ${event.location}` : ''}
-                            </div>
-                            {hasAttendees && (
-                              <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' as any }}>
-                                {event.attendees.slice(0, 3).map((a: any, j: number) => (
-                                  <span key={j} style={{ fontSize: 10, background: '#f3f4f6', color: '#6b7280', padding: '1px 6px', borderRadius: 10 }}>
-                                    {a.email?.split('@')[0]}
-                                  </span>
-                                ))}
-                                {event.attendees.length > 3 && <span style={{ fontSize: 10, color: '#9ca3af' }}>+{event.attendees.length - 3}</span>}
-                              </div>
-                            )}
-                          </div>
-                          <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 8px', borderRadius: 20, background: event.status === 'confirmed' ? '#f0fdf4' : '#f9fafb', color: event.status === 'confirmed' ? '#16a34a' : '#6b7280', border: `1px solid ${event.status === 'confirmed' ? '#bbf7d0' : '#e5e7eb'}`, flexShrink: 0, fontFamily: sans }}>
-                            {event.status || 'confirmed'}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {/* Sidebar info */}
-                  <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '1rem' }}>
-                    <div style={{ ...card }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111', marginBottom: '0.875rem' }}>Agent integration</div>
-                      <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: '1rem' }}>
-                        Your agents can now check your availability and schedule meetings automatically when clients request them via email or chat.
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' as any, gap: '0.625rem' }}>
-                        {[
-                          { icon: '✓', text: 'Check real-time availability' },
-                          { icon: '✓', text: 'Create events automatically' },
-                          { icon: '✓', text: 'Send invites to attendees' },
-                          { icon: '✓', text: 'Email reminders 24h before' },
-                        ].map((item, i) => (
-                          <div key={i} style={{ display: 'flex', gap: '0.625rem', alignItems: 'center' }}>
-                            <span style={{ color: '#16a34a', fontSize: 12, fontWeight: 700 }}>{item.icon}</span>
-                            <span style={{ fontSize: 13, color: '#374151' }}>{item.text}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div style={{ ...card }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111', marginBottom: '0.875rem' }}>Quick stats</div>
-                      {[
-                        { label: 'Events this month', value: calendarEvents.filter((e: any) => { const d = new Date(e.start?.dateTime || e.start?.date); return d.getMonth() === new Date().getMonth() }).length },
-                        { label: 'Total upcoming', value: calendarEvents.length },
-                        { label: 'With attendees', value: calendarEvents.filter((e: any) => e.attendees?.length > 0).length },
-                      ].map((item, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: i < 2 ? '1px solid #f9fafb' : 'none' }}>
-                          <span style={{ fontSize: 13, color: '#6b7280' }}>{item.label}</span>
-                          <span style={{ fontSize: 16, fontWeight: 700, color: '#7c3aed' }}>{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <a href="/api/calendar/auth" style={{ ...btnSecondary, textDecoration: 'none', textAlign: 'center', display: 'block', fontSize: 13 }}>
-                      Reconnect calendar
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-
+          
         </div>
       </main>
     </div>
