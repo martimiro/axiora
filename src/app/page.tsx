@@ -162,7 +162,9 @@ export default function Dashboard() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   useEffect(() => {
-    const interval = setInterval(() => { fetchStats(); fetchData() }, 30000)
+    const interval = setInterval(() => {
+      if (document.cookie.includes('token=')) { fetchStats(); fetchData() }
+    }, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -389,7 +391,7 @@ export default function Dashboard() {
             </div>
           </div>
           <LocaleSwitcher />
-          <button onClick={() => { document.cookie = 'token=; Max-Age=0; path=/'; window.location.href = '/login' }}
+          <button onClick={() => { document.cookie = 'token=; Max-Age=0; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'; window.location.href = '/login' }}
             style={{ ...btnOutline, width: '100%', marginTop: '0.5rem', fontSize: 12, textAlign: 'center' }}>
             {t?.logout || 'Sign out'}
           </button>

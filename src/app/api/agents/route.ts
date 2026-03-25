@@ -30,6 +30,12 @@ export async function DELETE(req: NextRequest) {
   if (!agent || agent.userId !== userId) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
+  // Delete in cascade: messages -> conversations -> agent
+  const conversations = await prisma.conversation.findMany({ where: { agentId: id } })
+  for (const conv of conversations) {
+    await prisma.message.deleteMany({ where: { conversationId: conv.id } })
+  }
+  await prisma.conversation.deleteMany({ where: { agentId: id } })
   await prisma.agent.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }
