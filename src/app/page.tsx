@@ -287,7 +287,7 @@ export default function Dashboard() {
     { key: 'stats', label: t?.stats || 'Analytics', icon: '↗' },
     { key: 'conversations', label: t?.conversations || 'Conversations', icon: '◌' },
     { key: 'agents', label: t?.agents || 'Agents', icon: '⬡' },
-    { key: 'calendar', label: 'Calendar', icon: '📅' },
+    { key: 'calendar', label: 'Calendar', icon: '' },
   ]
 
   const pageTitle: Record<string, string> = {
@@ -814,6 +814,7 @@ export default function Dashboard() {
           )}
 
           {/* CALENDAR */}
+          {view === 'calendar' && console.log('CALENDAR VIEW', calendarConnected) as any}
           {view === 'calendar' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>

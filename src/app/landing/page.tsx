@@ -244,6 +244,27 @@ export default function Landing() {
   const mono = "'IBM Plex Mono', monospace"
   const sans = "'Inter', sans-serif"
 
+  const dashboardRef = useRef<HTMLDivElement>(null)
+  const [tilt, setTilt] = useState({ x: 0, y: 0 })
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const el = dashboardRef.current
+    if (!el) return
+
+    const rect = el.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+
+    const rotateY = ((x / rect.width) - 0.5) * 10   // intensidad horizontal
+    const rotateX = ((y / rect.height) - 0.5) * -10 // intensidad vertical
+
+    setTilt({ x: rotateX, y: rotateY })
+  }
+
+  const handleMouseLeave = () => {
+    setTilt({ x: 0, y: 0 })
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: '#050505', color: '#e8e4dc', fontFamily: sans, overflowX: 'hidden' }}>
       <CursorLight />
@@ -343,51 +364,102 @@ export default function Landing() {
         </div>
       </FadeSection>
 
-      {/* Dashboard preview */}
-      <FadeSection style={{ maxWidth: 1040, margin: '0 auto', padding: '5rem 2rem' }}>
-        <div style={{ border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden', background: '#0a0a0a', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
-          <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid #111', display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#080808' }}>
-            {['#ef4444','#f59e0b','#22c55e'].map(c => <div key={c} style={{ width: 11, height: 11, borderRadius: '50%', background: c, opacity: 0.8 }} />)}
-            <span style={{ fontSize: 11, color: '#333', marginLeft: '0.5rem', fontFamily: mono }}>axiora.app</span>
-          </div>
-          <div style={{ display: 'flex', minHeight: 380 }}>
-            <div style={{ width: 200, borderRight: '1px solid #111', padding: '1.5rem 0', background: '#060606' }}>
-              <div style={{ padding: '0 1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#7c3aed', animation: 'pulse-accent 2s infinite' }} />
-                <span style={{ fontSize: 13, letterSpacing: '0.1em', color: '#555', fontFamily: mono, fontWeight: 500 }}>AXIORA</span>
-              </div>
-              {['PANEL', 'ESTADÍSTIQUES', 'CONVERSES', 'AGENTS'].map((item, i) => (
-                <div key={item} style={{ padding: '0.6rem 1.25rem', fontSize: 12, color: i === 0 ? '#e8e4dc' : '#333', borderLeft: i === 0 ? '2px solid #7c3aed' : '2px solid transparent', fontFamily: sans, fontWeight: i === 0 ? 500 : 400 }}>{item}</div>
-              ))}
-            </div>
-            <div style={{ flex: 1, padding: '1.75rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
-                {[['AGENTS ACTIUS','3'],['CONVERSES','142'],['MISSATGES AVUI','28']].map(([label, value]) => (
-                  <div key={label} style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 8, padding: '1rem 1.25rem' }}>
-                    <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#444', marginBottom: '0.5rem', fontFamily: mono }}>{label}</div>
-                    <div style={{ fontSize: 26, fontWeight: 600, color: '#e8e4dc', fontFamily: sans }}>{value}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#333', marginBottom: '0.875rem', paddingBottom: '0.5rem', borderBottom: '1px solid #0f0f0f', fontFamily: mono }}>ACTIVITAT RECENT</div>
-              {[
-                { agent: 'Support Agent', msg: 'Hi, I have a problem with my order...', status: 'OPEN' },
-                { agent: 'Sales Agent', msg: "I'm interested in your Pro plan...", status: 'OPEN' },
-                { agent: 'Support Agent', msg: 'When will my shipment arrive?', status: 'OPEN' },
-              ].map((conv, i) => (
-                <div key={i} style={{ padding: '0.75rem 1rem', border: '1px solid #111', borderRadius: 8, marginBottom: '0.5rem', background: '#080808', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#444', marginBottom: 3, fontFamily: sans }}>{conv.agent}</div>
-                    <div style={{ fontSize: 12, color: '#333', fontFamily: sans }}>{conv.msg}</div>
-                  </div>
-                  <div style={{ fontSize: 9, background: '#7c3aed18', color: '#8b5cf6', padding: '3px 8px', borderRadius: 4, fontFamily: mono, border: '1px solid #7c3aed33' }}>{conv.status}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+{/* Dashboard preview */}
+<FadeSection style={{ maxWidth: 1040, margin: '0 auto', padding: '5rem 2rem' }}>
+  <div
+    ref={dashboardRef}
+    onMouseMove={handleMouseMove}
+    onMouseLeave={handleMouseLeave}
+    style={{
+      border: '1px solid #1a1a1a',
+      borderRadius: 16,
+      overflow: 'hidden',
+      background: '#0a0a0a',
+      boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+      transform: `perspective(1200px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1.01)`,
+      transition: 'transform 0.12s ease-out'
+    }}
+  >
+    <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid #111', display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#080808' }}>
+      {['#ef4444','#f59e0b','#22c55e'].map(c => (
+        <div key={c} style={{ width: 11, height: 11, borderRadius: '50%', background: c, opacity: 0.8 }} />
+      ))}
+      <span style={{ fontSize: 11, color: '#333', marginLeft: '0.5rem', fontFamily: mono }}>
+        axiora.app
+      </span>
+    </div>
+
+    <div style={{ display: 'flex', minHeight: 380 }}>
+      <div style={{ width: 200, borderRight: '1px solid #111', padding: '1.5rem 0', background: '#060606' }}>
+        <div style={{ padding: '0 1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#7c3aed', animation: 'pulse-accent 2s infinite' }} />
+          <span style={{ fontSize: 13, letterSpacing: '0.1em', color: '#555', fontFamily: mono, fontWeight: 500 }}>
+            AXIORA
+          </span>
         </div>
-        <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: 11, color: '#2a2a2a', fontFamily: mono }}>Dashboard real d'Axiora</div>
-      </FadeSection>
+
+        {['PANEL', 'ESTADÍSTIQUES', 'CONVERSES', 'AGENTS'].map((item, i) => (
+          <div
+            key={item}
+            style={{
+              padding: '0.6rem 1.25rem',
+              fontSize: 12,
+              color: i === 0 ? '#e8e4dc' : '#333',
+              borderLeft: i === 0 ? '2px solid #7c3aed' : '2px solid transparent',
+              fontFamily: sans,
+              fontWeight: i === 0 ? 500 : 400
+            }}
+          >
+            {item}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ flex: 1, padding: '1.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
+          {[['AGENTS ACTIUS','3'],['CONVERSES','142'],['MISSATGES AVUI','28']].map(([label, value]) => (
+            <div key={label} style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 8, padding: '1rem 1.25rem' }}>
+              <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#444', marginBottom: '0.5rem', fontFamily: mono }}>
+                {label}
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 600, color: '#e8e4dc', fontFamily: sans }}>
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#333', marginBottom: '0.875rem', paddingBottom: '0.5rem', borderBottom: '1px solid #0f0f0f', fontFamily: mono }}>
+          ACTIVITAT RECENT
+        </div>
+
+        {[
+          { agent: 'Support Agent', msg: 'Hi, I have a problem with my order...', status: 'OPEN' },
+          { agent: 'Sales Agent', msg: "I'm interested in your Pro plan...", status: 'OPEN' },
+          { agent: 'Support Agent', msg: 'When will my shipment arrive?', status: 'OPEN' },
+        ].map((conv, i) => (
+          <div key={i} style={{ padding: '0.75rem 1rem', border: '1px solid #111', borderRadius: 8, marginBottom: '0.5rem', background: '#080808', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 11, color: '#444', marginBottom: 3, fontFamily: sans }}>
+                {conv.agent}
+              </div>
+              <div style={{ fontSize: 12, color: '#333', fontFamily: sans }}>
+                {conv.msg}
+              </div>
+            </div>
+            <div style={{ fontSize: 9, background: '#7c3aed18', color: '#8b5cf6', padding: '3px 8px', borderRadius: 4, fontFamily: mono, border: '1px solid #7c3aed33' }}>
+              {conv.status}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: 11, color: '#2a2a2a', fontFamily: mono }}>
+    Dashboard real d'Axiora
+  </div>
+</FadeSection>
 
       {/* Cómo funciona */}
       <FadeSection id="com-funciona" style={{ background: '#0a0a0a', borderTop: '1px solid #111', borderBottom: '1px solid #111', padding: '5rem 2rem' }}>

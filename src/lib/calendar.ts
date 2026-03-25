@@ -25,6 +25,19 @@ export async function getCalendarClient(userId: string) {
     expiry_date: integration.expiresAt.getTime(),
   })
 
+  // Force refresh if token expired
+  if (new Date() >= integration.expiresAt) {
+    const { credentials } = await auth.refreshAccessToken()
+    await prisma.calendarIntegration.update({
+      where: { userId },
+      data: {
+        accessToken: credentials.access_token!,
+        expiresAt: new Date(credentials.expiry_date || Date.now() + 3600000),
+      }
+    })
+    auth.setCredentials(credentials)
+  }
+
   // Auto-refresh token
   auth.on('tokens', async (tokens) => {
     if (tokens.access_token) {

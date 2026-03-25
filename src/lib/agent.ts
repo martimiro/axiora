@@ -32,14 +32,20 @@ export async function runAgent(agentId: string, userMessage: string, sessionId?:
 
   // Check calendar availability if message mentions meeting/appointment
   let calendarContext = ''
-  const meetingKeywords = ['reunió', 'reunio', 'meeting', 'cita', 'appointment', 'agenda', 'disponibilitat', 'disponibilidad', 'availability', 'quedar', 'trucar', 'llamar', 'call', 'demo', 'visita']
-  const wantsMeeting = meetingKeywords.some(k => userMessage.toLowerCase().includes(k))
+  const meetingKeywords = ['reunió', 'reunio', 'meeting', 'cita', 'appointment', 'agenda', 'disponibilitat', 'disponibilidad', 'availability', 'quedar', 'trucar', 'llamar', 'call', 'demo', 'visita', 'confirmo', 'confirmar', 'reservar', 'dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'les 9', 'les 10', 'les 11', 'les 12', 'les 16', 'les 17', 'a les', 'a las', 'at ']
+  // Also check conversation history for meeting context
+  const historyText = conversation.messages.map(m => m.content).join(' ').toLowerCase()
+  const wantsMeeting = meetingKeywords.some(k => userMessage.toLowerCase().includes(k)) ||
+    (historyText.includes('reunió') || historyText.includes('meeting') || historyText.includes('demo') || historyText.includes('disponib')) && 
+    (userMessage.toLowerCase().includes('perfecte') || userMessage.toLowerCase().includes('perfect') || userMessage.toLowerCase().includes('d\'acord') || userMessage.toLowerCase().includes('ok') || userMessage.toLowerCase().includes('sí') || userMessage.toLowerCase().includes('si ') || userMessage.toLowerCase().includes('email'))
 
+  console.log("[agent] wantsMeeting:", wantsMeeting, "message:", userMessage.slice(0,50))
   if (wantsMeeting) {
     try {
       const { freeSlots } = await getAvailability(agent.userId, 7)
+      const today = new Date().toISOString().split('T')[0]
       if (freeSlots.length > 0) {
-        calendarContext = `\n\nDISPONIBILITAT DEL CALENDARI (pròxims 7 dies):\n${freeSlots.slice(0, 5).map((s, i) => `${i + 1}. ${s.label}`).join('\n')}\n\nSi l'usuari confirma un horari, indica-ho clarament amb format: CREAR_REUNIO:[títol]|[start_iso]|[end_iso]|[email_convidat_opcional]`
+        calendarContext = `\n\nDISPONIBILITAT DEL CALENDARI (pròxims 7 dies):\n${freeSlots.slice(0, 5).map((s, i) => `${i + 1}. ${s.label}`).join('\n')}\n\nSi l'usuari confirma un horari, indica-ho clarament amb format: CREAR_REUNIO:[títol]|[start_iso]|[end_iso]|[email_convidat_opcional]. IMPORTANT: usa l'any correcte, avui és ${today}.`
       }
     } catch (e) {
       // Calendar not connected, continue without it
@@ -60,8 +66,10 @@ export async function runAgent(agentId: string, userMessage: string, sessionId?:
   const result = await chat.sendMessage(userMessage)
   let reply = result.response.text()
 
+  console.log("[agent] reply snippet:", reply.slice(0, 200))
   // Parse calendar event creation
-  const eventMatch = reply.match(/CREAR_REUNIO:([^|]+)\|([^|]+)\|([^|]+)\|?([^\n]*)/)
+  console.log("[agent] full reply:", reply)
+  const eventMatch = reply.match(/CREAR_REUNIO:\[?([^\]|]+)\]?\|\[?([^\]|]+)\]?\|\[?([^\]|]+)\]?\|\[?([^\]\n]*)\]?/)
   if (eventMatch) {
     try {
       const [, title, start, end, attendeeEmail] = eventMatch
