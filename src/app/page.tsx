@@ -391,7 +391,7 @@ export default function Dashboard() {
             </div>
           </div>
           <LocaleSwitcher />
-          <button onClick={() => { document.cookie = 'token=; Max-Age=0; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'; window.location.href = '/login' }}
+          <button onClick={() => { fetch('/api/auth/logout', { method: 'POST' }).then(() => window.location.href = '/login') }}
             style={{ ...btnOutline, width: '100%', marginTop: '0.5rem', fontSize: 12, textAlign: 'center' }}>
             {t?.logout || 'Sign out'}
           </button>
