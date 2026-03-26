@@ -42,7 +42,7 @@ export default function Register() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#080808', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'IBM Plex Mono', monospace" }}>
-      <div style={{ width: 360, border: '1px solid #1a1a1a', borderRadius: 4, padding: '2.5rem', background: '#0f0f0f' }}>
+      <div className="auth-card" style={{ width: 360, border: '1px solid #1a1a1a', borderRadius: 4, padding: '2.5rem', background: '#0f0f0f' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px #4ade80' }} />

@@ -80,7 +80,7 @@ function SearchModal({ agents, onClose, onSelect }: { agents: Agent[]; onClose: 
   ]
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '14vh', backdropFilter: 'blur(2px)' }} onClick={onClose}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 560, boxShadow: '0 24px 64px rgba(0,0,0,.12)', overflow: 'hidden', border: '1px solid #e5e7eb' }} onClick={e => e.stopPropagation()}>
+      <div className="search-modal-card" style={{ background: '#fff', borderRadius: 12, width: 560, boxShadow: '0 24px 64px rgba(0,0,0,.12)', overflow: 'hidden', border: '1px solid #e5e7eb' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', padding: '0 1rem', borderBottom: '1px solid #f3f4f6' }}>
           <span style={{ fontSize: 16, color: '#9ca3af', marginRight: '0.75rem' }}>🔍</span>
           <input ref={ref} value={q} onChange={e => setQ(e.target.value)} placeholder="Cerca agents, converses..." style={{ flex: 1, border: 'none', outline: 'none', padding: '1rem 0', fontSize: 15, color: '#111', background: 'transparent', fontFamily: "'Inter', sans-serif" }} />
@@ -144,6 +144,7 @@ export default function Dashboard() {
   const [showSearch, setShowSearch] = useState(false)
   const [notifications, setNotifications] = useState<{ id: string; text: string; time: string }[]>([])
   const [showNotif, setShowNotif] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -351,8 +352,10 @@ export default function Dashboard() {
 
       {showSearch && <SearchModal agents={agents} onClose={() => setShowSearch(false)} onSelect={handleSearchSelect} />}
 
+      <div className={`dash-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
+
       {/* Sidebar */}
-      <aside style={{ width: 232, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', background: '#fff', flexShrink: 0 }}>
+      <aside className={`dash-sidebar${sidebarOpen ? ' open' : ''}`} style={{ width: 232, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', background: '#fff', flexShrink: 0 }}>
         {/* Logo */}
         <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 30, height: 30, borderRadius: 8, background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -368,7 +371,7 @@ export default function Dashboard() {
         <nav style={{ flex: 1, padding: '0.75rem' }}>
           <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, letterSpacing: '0.08em', padding: '0.5rem 0.875rem 0.25rem', fontFamily: mono }}>MAIN</div>
           {navItems.map(item => (
-            <div key={item.key} className="nav-item" onClick={() => setView(item.key as any)}
+            <div key={item.key} className="nav-item" onClick={() => { setView(item.key as any); setSidebarOpen(false) }}
               style={{ padding: '0.6rem 0.875rem', cursor: 'pointer', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 8, color: isActive(item.key) ? accent : '#6b7280', background: isActive(item.key) ? '#7c3aed0f' : 'transparent', fontWeight: isActive(item.key) ? 600 : 400, fontSize: 14, marginBottom: 1, transition: 'all .1s' }}>
               <span style={{ fontSize: 13, opacity: 0.8 }}>{item.icon}</span>
               {item.label}
@@ -403,7 +406,8 @@ export default function Dashboard() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
         {/* Topbar */}
-        <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0.875rem 1.75rem', display: 'flex', alignItems: 'center', gap: '1rem', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div className="dash-topbar" style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0.875rem 1.75rem', display: 'flex', alignItems: 'center', gap: '1rem', position: 'sticky', top: 0, zIndex: 10 }}>
+          <button className="dash-hamburger" onClick={() => setSidebarOpen(true)} style={{ width: 36, height: 36, borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0, color: '#374151' }}>☰</button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1 }}>
             {(breadcrumb[view] || ['Overview']).map((crumb, i, arr) => (
               <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -419,7 +423,7 @@ export default function Dashboard() {
           <button onClick={() => setShowSearch(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '0.45rem 0.875rem', color: '#9ca3af', fontSize: 13, cursor: 'pointer', fontFamily: sans, transition: 'border-color .15s' }}>
             <span>🔍</span><span>Cerca...</span>
-            <kbd style={{ fontSize: 10, background: '#e5e7eb', padding: '1px 5px', borderRadius: 3, fontFamily: mono, color: '#6b7280' }}>⌘K</kbd>
+            <kbd className="dash-topbar-search-kbd" style={{ fontSize: 10, background: '#e5e7eb', padding: '1px 5px', borderRadius: 3, fontFamily: mono, color: '#6b7280' }}>⌘K</kbd>
           </button>
 
           <div style={{ position: 'relative' }}>
@@ -452,7 +456,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="dash-topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${accent}, #a78bfa)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
               {userInitials}
             </div>
@@ -464,12 +468,12 @@ export default function Dashboard() {
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '1.75rem' }} key={view} className="view-enter">
+        <div style={{ flex: 1, overflow: 'auto', padding: '1.75rem' }} key={view} className="view-enter dash-content">
 
           {/* OVERVIEW */}
           {view === 'dashboard' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
                 {[
                   { label: 'Active agents', value: stats?.totalAgents ?? 0, spark: sparkData, color: '#7c3aed', today: stats?.totalAgents ?? 0, yesterday: stats?.totalAgents ?? 0 },
                   { label: 'Open conversations', value: stats?.openConversations ?? 0, spark: sparkConvData, color: '#3b82f6', today: stats?.openConversations ?? 0, yesterday: stats?.yesterday?.conversations ?? 0 },
@@ -527,7 +531,7 @@ export default function Dashboard() {
           {/* ANALYTICS */}
           {view === 'stats' && stats && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div className="grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
                 {[
                   { label: 'Messages today', value: stats.messagesToday, color: '#7c3aed', today: stats.messagesToday, yesterday: stats.yesterday?.messages ?? 0 },
                   { label: 'This week', value: stats.messagesThisWeek, color: '#3b82f6', today: stats.messagesThisWeek, yesterday: 0 },
@@ -579,8 +583,8 @@ export default function Dashboard() {
 
           {/* CONVERSATIONS */}
           {view === 'conversations' && (
-            <div style={{ display: 'flex', gap: '1.25rem', height: 'calc(100vh - 120px)' }}>
-              <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="conv-layout" style={{ display: 'flex', gap: '1.25rem', height: 'calc(100vh - 120px)' }}>
+              <div className="conv-sidebar" style={{ width: 300, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', gap: '0.4rem' }}>
                   {(['all', 'open', 'resolved'] as const).map(f => (
                     <button key={f} onClick={() => setFilterStatus(f)}
@@ -609,7 +613,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <div className="conv-main" style={{ flex: 1, ...card, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 {activeConv ? (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px solid #f3f4f6', marginBottom: '1rem' }}>
@@ -680,7 +684,7 @@ export default function Dashboard() {
                 const pct = Math.round((ag.conversations.length / maxConvs) * 100)
                 return (
                   <div key={ag.id} className="card-hover" style={{ ...card, marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                    <div className="agent-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
                       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                         <div style={{ width: 44, height: 44, borderRadius: 11, background: `${color}18`, border: `1px solid ${color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0, color }}>⬡</div>
                         <div>
@@ -695,7 +699,7 @@ export default function Dashboard() {
                           <div style={{ fontSize: 11, color: '#d1d5db', fontFamily: mono, marginTop: 4 }}>ID: {ag.id}</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+                      <div className="agent-card-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
                         <span style={badge('open')}>Active</span>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <button className="btn-outline" style={btnOutline} onClick={() => { setEditingAgent(ag); setView('edit-agent') }}>Edit</button>
@@ -706,7 +710,7 @@ export default function Dashboard() {
 
                     <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.25rem', marginBottom: '1.25rem' }}>
                       <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: '0.875rem', fontWeight: 600, letterSpacing: '0.07em', fontFamily: mono }}>GMAIL INTEGRATION</div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem', padding: '0.875rem 1rem', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                      <div className="agent-gmail-toggle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem', padding: '0.875rem 1rem', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
                         <div>
                           <div style={{ fontSize: 14, color: '#111', fontWeight: 500, marginBottom: 2 }}>Auto-reply</div>
                           <div style={{ fontSize: 12, color: '#6b7280' }}>{autoReply ? 'Agent replies to emails automatically' : 'Agent reads but does not reply'}</div>
@@ -845,7 +849,7 @@ export default function Dashboard() {
                   </a>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.25rem' }}>
+                <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.25rem' }}>
                   {/* Events list */}
                   <div style={{ ...card }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f3f4f6' }}>

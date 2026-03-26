@@ -170,7 +170,7 @@ function UseCaseTabs({ m }: { m: any }) {
           </button>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5rem', alignItems: 'start' }}>
+      <div className="landing-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5rem', alignItems: 'start' }}>
         <div>
           <div style={{ fontSize: 20, color: '#e8e4dc', fontWeight: 600, marginBottom: '1.5rem', fontFamily: 'Inter, sans-serif' }}>{current.title}</div>
           {current.items.map((item, i) => (
@@ -209,6 +209,7 @@ export default function Landing() {
   const [heroVisible, setHeroVisible] = useState(false)
   const [typed, setTyped] = useState('')
   const [cursorOn, setCursorOn] = useState(true)
+  const [mobileNav, setMobileNav] = useState(false)
 
   useEffect(() => {
     const cookie = document.cookie.split(';').find(c => c.trim().startsWith('locale='))
@@ -286,23 +287,26 @@ export default function Landing() {
       `}</style>
 
       {/* Nav */}
-      <nav style={{ borderBottom: '1px solid #111', padding: '1.1rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'rgba(5,5,5,0.92)', backdropFilter: 'blur(12px)', zIndex: 10, opacity: heroVisible ? 1 : 0, transition: 'opacity 0.6s ease' }}>
+      <nav className="landing-nav" style={{ borderBottom: '1px solid #111', padding: '1.1rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'rgba(5,5,5,0.92)', backdropFilter: 'blur(12px)', zIndex: 10, opacity: heroVisible ? 1 : 0, transition: 'opacity 0.6s ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#7c3aed', animation: 'pulse-accent 2s infinite' }} />
           <span style={{ fontSize: 15, letterSpacing: '0.12em', color: '#e8e4dc', fontWeight: 600, fontFamily: mono }}>AXIORA</span>
         </div>
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+        <button className="landing-hamburger" onClick={() => setMobileNav(!mobileNav)} style={{ background: 'none', border: '1px solid #222', borderRadius: 6, color: '#888', fontSize: 18, cursor: 'pointer', width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+          {mobileNav ? '✕' : '☰'}
+        </button>
+        <div className={`landing-nav-links${mobileNav ? ' open' : ''}`} style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
           {[['#com-funciona', n?.howItWorks || 'COM FUNCIONA'], ['#casos-us', "CASOS D'ÚS"], ['#preus', n?.pricing || 'PREUS'], ['#faq', n?.faq || 'FAQ']].map(([href, label]) => (
-            <a key={href} href={href} className="nav-link" style={{ fontSize: 13, color: '#555', textDecoration: 'none', letterSpacing: '0.02em', transition: 'color .2s' }}>{label}</a>
+            <a key={href} href={href} className="nav-link" onClick={() => setMobileNav(false)} style={{ fontSize: 13, color: '#555', textDecoration: 'none', letterSpacing: '0.02em', transition: 'color .2s' }}>{label}</a>
           ))}
-          <Link href="/login" className="nav-link" style={{ fontSize: 13, color: '#666', textDecoration: 'none' }}>{n?.login || 'Entrar'}</Link>
+          <Link href="/login" className="nav-link" onClick={() => setMobileNav(false)} style={{ fontSize: 13, color: '#666', textDecoration: 'none' }}>{n?.login || 'Entrar'}</Link>
           <LocaleSwitcher />
-          <Link href="/register" className="btn-primary" style={{ background: '#7c3aed', color: '#fff', padding: '0.55rem 1.25rem', borderRadius: 8, fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>{n?.startFree || 'Començar gratis'}</Link>
+          <Link href="/register" className="btn-primary" onClick={() => setMobileNav(false)} style={{ background: '#7c3aed', color: '#fff', padding: '0.55rem 1.25rem', borderRadius: 8, fontSize: 13, textDecoration: 'none', fontWeight: 500, textAlign: 'center' }}>{n?.startFree || 'Començar gratis'}</Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section style={{ maxWidth: 960, margin: '0 auto', padding: '8rem 2rem 5rem', textAlign: 'center', position: 'relative' }}>
+      <section className="landing-hero" style={{ maxWidth: 960, margin: '0 auto', padding: '8rem 2rem 5rem', textAlign: 'center', position: 'relative' }}>
         <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', height: '100%', background: 'radial-gradient(ellipse 60% 50% at 50% 0%, #7c3aed18 0%, transparent 70%)', pointerEvents: 'none' }} />
         <ParticlesCanvas />
         <div style={{ position: 'relative', zIndex: 1 }}>
@@ -313,7 +317,7 @@ export default function Landing() {
             </div>
           </div>
           <div style={{ opacity: heroVisible ? 1 : 0, transform: heroVisible ? 'translateY(0)' : 'translateY(16px)', transition: 'opacity 0.8s ease 0.35s, transform 0.8s ease 0.35s' }}>
-            <h1 style={{ fontSize: 60, fontWeight: 700, lineHeight: 1.08, marginBottom: '1.5rem', color: '#f0ece4', letterSpacing: '-0.03em' }}>
+            <h1 className="landing-hero-title" style={{ fontSize: 60, fontWeight: 700, lineHeight: 1.08, marginBottom: '1.5rem', color: '#f0ece4', letterSpacing: '-0.03em' }}>
               {h?.title1 || 'El teu Gmail gestionat'}<br />
               <span style={{ background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 {typed}<span style={{ opacity: cursorOn ? 1 : 0, transition: 'opacity 0.1s', WebkitTextFillColor: '#8b5cf6' }}>|</span>
@@ -321,12 +325,12 @@ export default function Landing() {
             </h1>
           </div>
           <div style={{ opacity: heroVisible ? 1 : 0, transform: heroVisible ? 'translateY(0)' : 'translateY(16px)', transition: 'opacity 0.8s ease 0.5s, transform 0.8s ease 0.5s' }}>
-            <p style={{ fontSize: 18, color: '#666', lineHeight: 1.75, maxWidth: 560, margin: '0 auto 2.5rem', fontWeight: 400 }}>
+            <p className="landing-hero-desc" style={{ fontSize: 18, color: '#666', lineHeight: 1.75, maxWidth: 560, margin: '0 auto 2.5rem', fontWeight: 400 }}>
               {h?.description || "Axiora connecta agents d'IA a la teva safata d'entrada. Llegeixen, classifiquen i responen emails automàticament."}
             </p>
           </div>
           <div style={{ opacity: heroVisible ? 1 : 0, transform: heroVisible ? 'translateY(0)' : 'translateY(16px)', transition: 'opacity 0.8s ease 0.65s, transform 0.8s ease 0.65s' }}>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' as any, marginBottom: '1.5rem' }}>
+            <div className="landing-hero-cta" style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' as any, marginBottom: '1.5rem' }}>
               <Link href="/register" className="btn-primary" style={{ background: '#7c3aed', color: '#fff', padding: '0.875rem 2.5rem', borderRadius: 10, fontSize: 14, textDecoration: 'none', fontWeight: 600 }}>
                 {h?.ctaPrimary || 'Crear compte gratis'}
               </Link>
@@ -347,7 +351,7 @@ export default function Landing() {
 
       {/* Social proof */}
       <FadeSection style={{ padding: '4rem 2rem', borderBottom: '1px solid #111' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', justifyContent: 'center' }}>
+        <div className="social-proof-container" style={{ maxWidth: 900, margin: '0 auto', display: 'flex', justifyContent: 'center' }}>
           {[
             { value: 94, suffix: '%', label: s?.s2l || 'Emails resolts automàticament' },
             { value: 3, suffix: 'h', label: s?.s1l || 'Estalvi diari per empresa' },
@@ -390,7 +394,7 @@ export default function Landing() {
     </div>
 
     <div style={{ display: 'flex', minHeight: 380 }}>
-      <div style={{ width: 200, borderRight: '1px solid #111', padding: '1.5rem 0', background: '#060606' }}>
+      <div className="landing-preview-sidebar" style={{ width: 200, borderRight: '1px solid #111', padding: '1.5rem 0', background: '#060606' }}>
         <div style={{ padding: '0 1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#7c3aed', animation: 'pulse-accent 2s infinite' }} />
           <span style={{ fontSize: 13, letterSpacing: '0.1em', color: '#555', fontFamily: mono, fontWeight: 500 }}>
@@ -416,7 +420,7 @@ export default function Landing() {
       </div>
 
       <div style={{ flex: 1, padding: '1.75rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
+        <div className="landing-preview-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
           {[['AGENTS ACTIUS','3'],['CONVERSES','142'],['MISSATGES AVUI','28']].map(([label, value]) => (
             <div key={label} style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 8, padding: '1rem 1.25rem' }}>
               <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#444', marginBottom: '0.5rem', fontFamily: mono }}>
@@ -466,7 +470,7 @@ export default function Landing() {
         <div style={{ maxWidth: 960, margin: '0 auto' }}>
           <div style={{ fontSize: 12, letterSpacing: '0.15em', color: '#555', textAlign: 'center', marginBottom: '0.75rem', fontFamily: mono }}>{hw?.label || 'PROCÉS'}</div>
           <div style={{ fontSize: 36, fontWeight: 700, color: '#f0ece4', textAlign: 'center', marginBottom: '3.5rem', letterSpacing: '-0.02em' }}>{hw?.title || 'Configurat en 3 passos'}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+          <div className="landing-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
             {[
               { step: '01', title: hw?.step1title || 'Connecta el teu Gmail', desc: hw?.step1desc || '', detail: hw?.step1detail || 'Segur · OAuth 2.0' },
               { step: '02', title: hw?.step2title || 'Configura el teu agent', desc: hw?.step2desc || '', detail: hw?.step2detail || 'Sense codi · 2 minuts' },
@@ -512,7 +516,7 @@ export default function Landing() {
               <span style={{ marginLeft: '0.5rem', fontSize: 10, color: '#8b5cf6', background: '#7c3aed14', padding: '2px 7px', borderRadius: 10, border: '1px solid #7c3aed33' }}>{pr?.discount || '-15%'}</span>
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+          <div className="landing-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
             {[
               { plan: pr?.basic || 'BÀSIC', price: prices.basic, originalPrice: 29, desc: pr?.basicDesc || 'Per començar', features: pr?.basicFeatures || [], highlighted: false },
               { plan: pr?.pro || 'PRO', price: prices.pro, originalPrice: 99, desc: pr?.proDesc || 'El més popular', features: pr?.proFeatures || [], highlighted: true },
@@ -578,7 +582,7 @@ export default function Landing() {
       </FadeSection>
 
       {/* Footer */}
-      <footer style={{ borderTop: '1px solid #111', padding: '2rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0a0a0a' }}>
+      <footer className="landing-footer" style={{ borderTop: '1px solid #111', padding: '2rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0a0a0a' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#7c3aed' }} />
           <span style={{ fontSize: 13, letterSpacing: '0.1em', color: '#333', fontFamily: mono, fontWeight: 500 }}>AXIORA</span>

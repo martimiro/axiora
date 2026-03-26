@@ -51,3 +51,103 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .card-hover:hover .step-num { color: var(--accent) !important; }
 .social-proof-item { border-right: 1px solid var(--border); padding: 0 3rem; text-align: center; }
 .social-proof-item:last-child { border-right: none; }
+
+/* ─── Responsive ─── */
+
+.dash-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40; }
+.dash-hamburger { display: none; }
+.landing-hamburger { display: none; }
+
+@media (max-width: 768px) {
+  /* Dashboard sidebar */
+  .dash-sidebar {
+    display: none !important;
+  }
+  .dash-sidebar.open {
+    display: flex !important;
+    position: fixed !important;
+    z-index: 50 !important;
+    top: 0 !important; left: 0 !important; bottom: 0 !important;
+    width: 260px !important;
+    box-shadow: 0 0 60px rgba(0,0,0,0.4) !important;
+  }
+  .dash-overlay.open { display: block; }
+  .dash-hamburger { display: flex !important; }
+  .dash-topbar-user { display: none !important; }
+  .dash-topbar-search-kbd { display: none !important; }
+
+  /* Dashboard grids */
+  .grid-3 { grid-template-columns: 1fr !important; }
+  .grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Conversations */
+  .conv-layout { flex-direction: column !important; height: auto !important; min-height: calc(100vh - 120px) !important; }
+  .conv-sidebar { width: 100% !important; max-height: 280px !important; overflow-y: auto !important; }
+  .conv-main { flex: 1 !important; min-height: 0 !important; }
+
+  /* Calendar */
+  .calendar-grid { grid-template-columns: 1fr !important; }
+
+  /* Agent cards */
+  .agent-card-header { flex-direction: column !important; }
+  .agent-card-actions { align-items: flex-start !important; flex-direction: row !important; }
+  .agent-gmail-toggle { flex-direction: column !important; align-items: flex-start !important; gap: 0.75rem !important; }
+
+  /* Dashboard content padding */
+  .dash-content { padding: 1rem !important; }
+  .dash-topbar { padding: 0.75rem 1rem !important; }
+
+  /* Landing nav */
+  .landing-nav { padding: 0.875rem 1.25rem !important; }
+  .landing-nav-links { display: none !important; }
+  .landing-nav-links.open {
+    display: flex !important;
+    flex-direction: column !important;
+    position: absolute !important;
+    top: 100% !important; left: 0 !important; right: 0 !important;
+    background: rgba(5,5,5,0.98) !important;
+    backdrop-filter: blur(12px) !important;
+    padding: 1.25rem 1.5rem !important;
+    border-bottom: 1px solid #111 !important;
+    gap: 0.75rem !important;
+    z-index: 20 !important;
+  }
+  .landing-hamburger { display: flex !important; }
+
+  /* Landing hero */
+  .landing-hero { padding: 4rem 1.25rem 3rem !important; }
+  .landing-hero-title { font-size: 32px !important; }
+  .landing-hero-desc { font-size: 15px !important; }
+  .landing-hero-cta { flex-direction: column !important; align-items: center !important; }
+  .landing-hero-cta a { width: 100% !important; text-align: center !important; }
+
+  /* Landing social proof */
+  .social-proof-container { flex-direction: column !important; gap: 1.5rem !important; }
+  .social-proof-item { border-right: none !important; border-bottom: 1px solid var(--border) !important; padding: 0 0 1.25rem !important; }
+  .social-proof-item:last-child { border-bottom: none !important; padding-bottom: 0 !important; }
+
+  /* Landing grids */
+  .landing-grid-3 { grid-template-columns: 1fr !important; }
+  .landing-grid-2 { grid-template-columns: 1fr !important; }
+
+  /* Landing preview */
+  .landing-preview-sidebar { display: none !important; }
+  .landing-preview-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Landing footer */
+  .landing-footer { flex-direction: column !important; gap: 1rem !important; align-items: center !important; text-align: center !important; padding: 1.5rem !important; }
+
+  /* Login / Register */
+  .auth-card { width: 100% !important; max-width: 400px !important; margin: 0 1rem !important; }
+
+  /* Search modal */
+  .search-modal-card { width: calc(100vw - 2rem) !important; max-width: 560px !important; }
+}
+
+@media (max-width: 480px) {
+  .grid-4 { grid-template-columns: 1fr !important; }
+  .landing-hero-title { font-size: 26px !important; }
+  .landing-preview-grid-3 { grid-template-columns: 1fr !important; }
+  .conv-layout { min-height: auto !important; }
+  .conv-sidebar { max-height: 220px !important; }
+}
