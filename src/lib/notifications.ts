@@ -15,7 +15,7 @@ export async function notifyOperator({
   message: string
   reply: string
 }) {
-  const dashboardUrl = `${process.env.NEXTAUTH_URL}/?conv=${conversationId}`
+  const dashboardUrl = `${process.env.NEXTAUTH_URL}/dashboard?conv=${conversationId}`
 
   await resend.emails.send({
   from: 'Axiora <axiora@melpie.resend.app>',

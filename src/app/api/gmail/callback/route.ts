@@ -37,5 +37,5 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  return NextResponse.redirect(new URL('/?gmail=connected', process.env.NEXTAUTH_URL!))
+  return NextResponse.redirect(new URL('/dashboard?gmail=connected', process.env.NEXTAUTH_URL!))
 }

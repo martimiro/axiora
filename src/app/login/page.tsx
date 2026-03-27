@@ -29,7 +29,7 @@ export default function Login() {
       body: JSON.stringify({ email, password }),
     })
     if (res.ok) {
-      router.push('/')
+      router.push('/dashboard')
     } else {
       const data = await res.json()
       setError(data.error || 'Error')

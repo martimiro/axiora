@@ -15,8 +15,13 @@ function getOAuthClient() {
   )
 }
 
+function extractEmail(from: string): string {
+  const match = from.match(/<([^>]+)>/)
+  return match ? match[1] : from.trim()
+}
+
 export async function getGmailClient() {
-const integration = await prisma.gmailIntegration.findFirst()
+  const integration = await prisma.gmailIntegration.findFirst()
   if (!integration) throw new Error('Gmail no conectado')
 
   const auth = getOAuthClient()
@@ -31,7 +36,6 @@ const integration = await prisma.gmailIntegration.findFirst()
 export async function processNewEmails(agentId: string) {
   const gmail = await getGmailClient()
 
-  // Obtener emails no leídos
   const res = await gmail.users.messages.list({
     userId: 'me',
     q: 'is:unread -from:me',
@@ -51,32 +55,38 @@ export async function processNewEmails(agentId: string) {
     const headers = full.data.payload?.headers || []
     const subject = headers.find(h => h.name === 'Subject')?.value || '(sin asunto)'
     const from = headers.find(h => h.name === 'From')?.value || ''
+    const senderEmail = extractEmail(from)
     const body = extractBody(full.data.payload)
 
     if (!body) continue
 
-    // Procesar con el agente
+    const threadId = full.data.threadId!
+    const rfc2822MsgId = headers.find(h => h.name === 'Message-ID' || h.name === 'Message-Id')?.value || ''
+
+    const sessionId = `gmail:${senderEmail}`
     const { reply, conversationId } = await runAgent(
       agentId,
-      `Email de: ${from}\nAsunto: ${subject}\n\n${body}`
+      `Email de: ${from}\nEmail del remitent: ${senderEmail}\nAsunto: ${subject}\n\n${body}`,
+      sessionId
     )
 
-    // Responder al email
-const agentData = await prisma.agent.findUnique({ where: { id: agentId } })
-const userId = agentData?.userId || ''
-const config = await prisma.config.findFirst({ where: { key: `gmail_auto_reply_${userId}`, userId } })
-	const autoReply = config?.value === 'true'
-	if (autoReply) {
-  		await sendReply(gmail, msg.id!, from, subject, reply)
-	}   
- // Marcar como leído
+    const cleanReply = reply.replace(/CREAR_REUNIO:[^\n]+/g, '').trim()
+
+    const agentData = await prisma.agent.findUnique({ where: { id: agentId } })
+    const userId = agentData?.userId || ''
+    const config = await prisma.config.findFirst({ where: { key: `gmail_auto_reply_${userId}`, userId } })
+    const autoReply = config?.value === 'true'
+    if (autoReply) {
+      await sendReply(gmail, threadId, rfc2822MsgId, from, subject, cleanReply)
+    }
+
     await gmail.users.messages.modify({
       userId: 'me',
       id: msg.id!,
       requestBody: { removeLabelIds: ['UNREAD'] }
     })
 
-    results.push({ from, subject, reply, conversationId })
+    results.push({ from, subject, reply: cleanReply, conversationId })
   }
 
   return results
@@ -96,20 +106,22 @@ function extractBody(payload: any): string {
   return ''
 }
 
-async function sendReply(gmail: any, messageId: string, to: string, subject: string, body: string) {
-  const email = [
+async function sendReply(gmail: any, threadId: string, inReplyTo: string, to: string, subject: string, body: string) {
+  const headers = [
     `To: ${to}`,
     `Subject: Re: ${subject}`,
-    `In-Reply-To: ${messageId}`,
     `Content-Type: text/plain; charset=utf-8`,
-    '',
-    body
-  ].join('\n')
+  ]
+  if (inReplyTo) {
+    headers.push(`In-Reply-To: ${inReplyTo}`)
+    headers.push(`References: ${inReplyTo}`)
+  }
 
+  const email = [...headers, '', body].join('\n')
   const encoded = Buffer.from(email).toString('base64url')
 
   await gmail.users.messages.send({
     userId: 'me',
-    requestBody: { raw: encoded, threadId: messageId }
+    requestBody: { raw: encoded, threadId }
   })
 }

@@ -12,7 +12,7 @@ export async function GET() {
   if (!userId) return NextResponse.json({ autoReply: false })
 
   const config = await prisma.config.findFirst({
-    where: { key: 'gmail_auto_reply', userId }
+    where: { key: `gmail_auto_reply_${userId}`, userId }
   })
   return NextResponse.json({ autoReply: config?.value === 'true' })
 }

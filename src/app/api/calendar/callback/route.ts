@@ -36,5 +36,5 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  return NextResponse.redirect(new URL('/?calendar=connected', process.env.NEXTAUTH_URL!))
+  return NextResponse.redirect(new URL('/dashboard?calendar=connected', process.env.NEXTAUTH_URL!))
 }

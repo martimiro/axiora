@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@/generated/prisma'
 import { getUserId } from '@/lib/session'
+import { getPlanLimits } from '@/lib/plans'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter })
@@ -10,6 +11,18 @@ const prisma = new PrismaClient({ adapter })
 export async function POST(req: NextRequest) {
   const userId = await getUserId()
   if (!userId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+
+  const limits = getPlanLimits(user.plan, user.role)
+  const agentCount = await prisma.agent.count({ where: { userId } })
+  if (agentCount >= limits.maxAgents) {
+    return NextResponse.json(
+      { error: `Plan limit reached: ${user.plan} allows max ${limits.maxAgents} agent(s). Upgrade your plan.` },
+      { status: 403 }
+    )
+  }
 
   const { name, description, prompt, type } = await req.json()
   if (!name || !prompt) {
